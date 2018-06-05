@@ -738,12 +738,20 @@ static int rt5645_hweq_put(struct snd_kcontrol *kcontrol,
 	.put = rt5645_hweq_put \
 }
 
+static bool disable_spkr;
+static atomic_t last_spkr_val = ATOMIC_INIT(0);
+
 static int rt5645_spk_put_volsw(struct snd_kcontrol *kcontrol,
 		struct snd_ctl_elem_value *ucontrol)
 {
 	struct snd_soc_component *component = snd_kcontrol_chip(kcontrol);
 	struct rt5645_priv *rt5645 = snd_soc_component_get_drvdata(component);
 	int ret;
+
+	atomic_set(&last_spkr_val, ucontrol->value.integer.value[0]);
+
+	if (disable_spkr)
+		return 0;
 
 	regmap_update_bits(rt5645->regmap, RT5645_MICBIAS,
 		RT5645_PWR_CLK25M_MASK, RT5645_PWR_CLK25M_PU);
@@ -3171,11 +3179,40 @@ static void rt5645_enable_push_button_irq(struct snd_soc_codec *codec,
 	}
 }
 
+static void adjust_spk_hp_vols(struct rt5645_priv *rt5645, bool jack_insert)
+{
+	unsigned spkr_volume;
+
+	spkr_volume = atomic_read(&last_spkr_val);
+	disable_spkr = jack_insert;
+	if (disable_spkr) {
+		/* Mute speaker */
+		regmap_write(rt5645->regmap, RT5645_SPK_VOL,
+			1U << RT5645_VOL_L_SFT | 1U << RT5645_VOL_R_SFT |
+			39U << RT5645_L_VOL_SFT | 39U << RT5645_R_VOL_SFT);
+		/* Enable headphones */
+		regmap_write(rt5645->regmap, RT5645_HP_VOL,
+				((39 - spkr_volume) << RT5645_L_VOL_SFT) |
+				((39 - spkr_volume) << RT5645_R_VOL_SFT));
+	} else {
+		/* Mute headphones */
+		regmap_write(rt5645->regmap, RT5645_HP_VOL,
+			1U << RT5645_VOL_L_SFT | 1U << RT5645_VOL_R_SFT |
+			39U << RT5645_L_VOL_SFT | 39U << RT5645_R_VOL_SFT);
+		/* Enable speaker */
+		regmap_write(rt5645->regmap, RT5645_SPK_VOL,
+				((39 - spkr_volume) << RT5645_L_VOL_SFT) |
+				((39 - spkr_volume) << RT5645_R_VOL_SFT));
+	}
+}
+
 static int rt5645_jack_detect(struct snd_soc_codec *codec, int jack_insert)
 {
 	struct snd_soc_dapm_context *dapm = snd_soc_codec_get_dapm(codec);
 	struct rt5645_priv *rt5645 = snd_soc_codec_get_drvdata(codec);
 	unsigned int val;
+
+	adjust_spk_hp_vols(rt5645, jack_insert);
 
 	if (jack_insert) {
 		regmap_write(rt5645->regmap, RT5645_CHARGE_PUMP, 0x0e06);
