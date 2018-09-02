@@ -1669,7 +1669,7 @@ static void intel_pstate_update_pstate(struct cpudata *cpu, int pstate)
 	if (pstate == cpu->pstate.current_pstate)
 		return;
 
-	cpu->pstate.current_pstate = pstate;
+	cpu->pstate.current_pstate = cpu->pstate.turbo_pstate;
 	wrmsrl(MSR_IA32_PERF_CTL, pstate_funcs.get_val(cpu, pstate));
 }
 
