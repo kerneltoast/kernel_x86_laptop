@@ -445,5 +445,9 @@ static inline bool i915_request_has_nopreempt(const struct i915_request *rq)
 }
 
 bool i915_retire_requests(struct drm_i915_private *i915);
+void intel_engine_init_retire(struct intel_engine_cs *engine);
+void intel_engine_add_retire(struct intel_engine_cs *engine,
+			     struct intel_timeline *tl);
+void intel_engine_fini_retire(struct intel_engine_cs *engine);
 
 #endif /* I915_REQUEST_H */
