@@ -371,7 +371,7 @@ compound_page_dtor * const compound_page_dtors[NR_COMPOUND_DTORS] = {
 
 int min_free_kbytes = 1024;
 int user_min_free_kbytes = -1;
-int watermark_boost_factor __read_mostly = 15000;
+int watermark_boost_factor __read_mostly;
 int watermark_scale_factor = 10;
 
 bool mirrored_kernelcore __initdata_memblock;
