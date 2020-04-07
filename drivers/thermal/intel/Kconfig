@@ -10,7 +10,11 @@ config INTEL_POWERCLAMP
 
 config X86_THERMAL_VECTOR
 	def_bool y
+	prompt "Machine check thermal vector"
 	depends on X86 && CPU_SUP_INTEL && X86_LOCAL_APIC
+	help
+	  Provide support for capturing thermal events, logging them, and
+	  passing them off to other drivers.
 
 config X86_MCE_THERMAL_VERBOSE
 	bool "Verbose logging for thermal events"
