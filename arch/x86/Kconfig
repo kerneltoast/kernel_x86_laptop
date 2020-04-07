@@ -1157,6 +1157,15 @@ config X86_THERMAL_VECTOR
 	def_bool y
 	depends on X86_MCE_INTEL
 
+config X86_MCE_THERMAL_VERBOSE
+	bool "Verbose logging for thermal events"
+	depends on X86_THERMAL_VECTOR
+	---help---
+	  Display messages in the kernel log when thermal events are triggered,
+	  such as overheating and throttling. This mostly only uses extra CPU
+	  for ratelimiting and book keeping, so unless you need these logs, it
+	  is safe to say N.
+
 source "arch/x86/events/Kconfig"
 
 config X86_LEGACY_VM86
