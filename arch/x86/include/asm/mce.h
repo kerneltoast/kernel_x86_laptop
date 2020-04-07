@@ -254,9 +254,6 @@ extern void (*deferred_error_int_vector)(void);
 
 void intel_init_thermal(struct cpuinfo_x86 *c);
 
-/* Interrupt Handler for core thermal thresholds */
-extern int (*platform_thermal_notify)(__u64 msr_val);
-
 /* Interrupt Handler for package thermal thresholds */
 extern int (*platform_thermal_package_notify)(__u64 msr_val);
 
