@@ -313,6 +313,9 @@ static void therm_throt_process(bool new_event, int event, int level)
 	u64 now;
 	struct thermal_state *pstate = &per_cpu(thermal_state, this_cpu);
 
+	if (!IS_ENABLED(CONFIG_X86_MCE_THERMAL_VERBOSE))
+		return;
+
 	now = get_jiffies_64();
 	if (level == CORE_LEVEL) {
 		if (event == THERMAL_THROTTLING_EVENT)
