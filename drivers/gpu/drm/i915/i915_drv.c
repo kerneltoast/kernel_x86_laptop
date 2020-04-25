@@ -1627,7 +1627,6 @@ static int i915_drm_suspend_late(struct drm_device *dev, bool hibernation)
 	i915_gem_suspend_late(dev_priv);
 
 	intel_display_set_init_power(dev_priv, false);
-	i915_rc6_ctx_wa_suspend(dev_priv);
 	intel_uncore_suspend(dev_priv);
 
 	/*
@@ -1853,8 +1852,6 @@ static int i915_drm_resume_early(struct drm_device *dev)
 		intel_power_domains_init_hw(dev_priv, true);
 	else
 		intel_display_set_init_power(dev_priv, true);
-
-	i915_rc6_ctx_wa_resume(dev_priv);
 
 	intel_engines_sanitize(dev_priv);
 
