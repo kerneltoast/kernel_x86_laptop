@@ -7001,7 +7001,7 @@ restart:
 		__fs_reclaim_release(_THIS_IP_);
 		ret = kthread_freezable_should_stop(&was_frozen);
 		__fs_reclaim_acquire(_THIS_IP_);
-		if (was_frozen || ret || !atomic_read(&pgdat->kswapd_waiters))
+		if (was_frozen || ret || !atomic_long_read(&kswapd_waiters))
 			break;
 
 		/*
