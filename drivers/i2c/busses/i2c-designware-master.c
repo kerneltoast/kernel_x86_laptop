@@ -490,8 +490,9 @@ i2c_dw_recv_len(struct dw_i2c_dev *dev, u8 len)
 	 * Adjust the buffer length and mask the flag
 	 * after receiving the first byte.
 	 */
-	len += (flags & I2C_CLIENT_PEC) ? 2 : 1;
-	dev->tx_buf_len = len - min_t(u8, len, dev->rx_outstanding);
+	if (flags & I2C_CLIENT_PEC)
+		len++;
+	dev->tx_buf_len = len - min_t(u8, len - 1, dev->rx_outstanding);
 	msgs[dev->msg_read_idx].len = len;
 	msgs[dev->msg_read_idx].flags &= ~I2C_M_RECV_LEN;
 
