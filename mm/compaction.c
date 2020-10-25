@@ -2665,7 +2665,7 @@ int sysctl_compact_memory;
  * aggressively the kernel should compact memory in the
  * background. It takes values in the range [0, 100].
  */
-unsigned int __read_mostly sysctl_compaction_proactiveness = 20;
+unsigned int __read_mostly sysctl_compaction_proactiveness;
 
 /*
  * This is the entry point for compacting all nodes via
