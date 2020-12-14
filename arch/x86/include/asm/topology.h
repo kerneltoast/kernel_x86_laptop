@@ -305,4 +305,15 @@ static inline void freq_invariance_set_perf_ratio(u64 ratio, bool turbo_disabled
 extern void arch_scale_freq_tick(void);
 #define arch_scale_freq_tick arch_scale_freq_tick
 
+#ifdef CONFIG_INTEL_HFI_THERMAL
+int intel_hfi_read_classid(u8 *classid);
+#else
+static inline int intel_hfi_read_classid(u8 *classid) { return -ENODEV; }
+#endif
+
+#ifdef CONFIG_IPC_CLASSES
+void intel_update_ipcc(struct task_struct *curr);
+#define arch_update_ipcc intel_update_ipcc
+#endif
+
 #endif /* _ASM_X86_TOPOLOGY_H */
