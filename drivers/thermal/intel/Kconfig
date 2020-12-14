@@ -119,6 +119,7 @@ config INTEL_HFI_THERMAL
 	depends on NET
 	depends on CPU_SUP_INTEL
 	select THERMAL_NETLINK
+	select IPC_CLASSES
 	help
 	  Select this option to enable the Hardware Feedback Interface. If
 	  selected, hardware provides guidance to the operating system on
