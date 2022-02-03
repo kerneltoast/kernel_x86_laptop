@@ -204,7 +204,9 @@ static int acpi_battery_get_property(struct power_supply *psy,
 {
 	int full_capacity = ACPI_BATTERY_VALUE_UNKNOWN, ret = 0;
 	struct acpi_battery *battery = to_acpi_battery(psy);
+	int zero_cap_retries = 10;
 
+read_again:
 	if (acpi_battery_present(battery)) {
 		/* run battery update only if it is present */
 		acpi_battery_get_state(battery);
@@ -281,9 +283,22 @@ static int acpi_battery_get_property(struct power_supply *psy,
 		if (battery->capacity_now == ACPI_BATTERY_VALUE_UNKNOWN ||
 		    full_capacity == ACPI_BATTERY_VALUE_UNKNOWN)
 			ret = -ENODEV;
-		else
+		else {
 			val->intval = battery->capacity_now * 100/
 					full_capacity;
+			if (!val->intval) {
+				pr_err("sending zero capacity to userspace! (battery->capacity_now=%d, full_capacity=%d, battery_present=%d, zero_cap_retries=%d)",
+				       battery->capacity_now, full_capacity, acpi_battery_present(battery), zero_cap_retries);
+				if (zero_cap_retries--) {
+					full_capacity = ACPI_BATTERY_VALUE_UNKNOWN;
+					battery->update_time = 0;
+					goto read_again;
+				}
+			} else if (zero_cap_retries != 10) {
+				pr_err("capacity no longer zero! (battery->capacity_now=%d, full_capacity=%d, battery_present=%d, zero_cap_retries=%d)",
+				       battery->capacity_now, full_capacity, acpi_battery_present(battery), zero_cap_retries);
+			}
+		}
 		break;
 	case POWER_SUPPLY_PROP_CAPACITY_LEVEL:
 		if (battery->state & ACPI_BATTERY_STATE_CRITICAL)
