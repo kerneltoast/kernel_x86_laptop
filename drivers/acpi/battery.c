@@ -103,6 +103,7 @@ struct acpi_battery {
 	int revision;
 	int rate_now;
 	int capacity_now;
+	int last_capacity_now;
 	int voltage_now;
 	int design_capacity;
 	int full_charge_capacity;
@@ -554,6 +555,25 @@ static int acpi_battery_get_info(struct acpi_battery *battery)
 	return result;
 }
 
+static bool acpi_battery_dell_quirk(struct acpi_battery *battery)
+{
+	if (!ACPI_BATTERY_CAPACITY_VALID(battery->full_charge_capacity))
+		return false;
+
+	/*
+	 * The Dell XPS 15 7590 base (which includes the Precision 5540) has a
+	 * bug where the battery meter will spuriously report 1% over ACPI. This
+	 * manifests itself as a 0% reading due to the loss of precision when
+	 * dividing capacity_now (which has some precision loss itself) by
+	 * full_capacity, since full_capacity can be slightly larger than
+	 * `capacity_now * 100` in this scenario (e.g., capacity_now could be 58
+	 * and full_capacity could be 5868, in which case `58 * 100 / 5868` is
+	 * zero). So we can detect the 1% bug by checking if `capacity_now ==
+	 * full_capacity / 100`.
+	 */
+	return battery->capacity_now == battery->full_charge_capacity / 100;
+}
+
 static int acpi_battery_get_state(struct acpi_battery *battery)
 {
 	int result = 0;
@@ -608,6 +628,20 @@ static int acpi_battery_get_state(struct acpi_battery *battery)
 	if (test_bit(ACPI_BATTERY_QUIRK_DEGRADED_FULL_CHARGE, &battery->flags) &&
 	    battery->capacity_now > battery->full_charge_capacity)
 		battery->capacity_now = battery->full_charge_capacity;
+
+	/*
+	 * Attempting to reread the battery state from ACPI doesn't fix the 1%
+	 * bug on affected Dells. Just use the last good capacity reading and
+	 * hope that the battery meter eventually sorts itself out without
+	 * needing to plug in the charger to fix it.
+	 */
+	if (acpi_battery_dell_quirk(battery)) {
+		battery->capacity_now = battery->last_capacity_now;
+		pr_warn("Dell battery reports spurious 1%%, using last good reading of %d%%\n",
+			battery->capacity_now * 100 / battery->full_charge_capacity);
+	} else {
+		battery->last_capacity_now = battery->capacity_now;
+	}
 
 	return result;
 }
