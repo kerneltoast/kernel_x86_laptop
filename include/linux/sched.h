@@ -303,7 +303,7 @@ enum {
 	TASK_COMM_LEN = 16,
 };
 
-extern void sched_tick(void);
+extern void sched_tick(bool user_tick);
 
 #define	MAX_SCHEDULE_TIMEOUT		LONG_MAX
 

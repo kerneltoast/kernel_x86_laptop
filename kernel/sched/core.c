@@ -5663,7 +5663,7 @@ static inline u64 cpu_resched_latency(struct rq *rq) { return 0; }
  * This function gets called by the timer code, with HZ frequency.
  * We call it with interrupts disabled.
  */
-void sched_tick(void)
+void sched_tick(bool user_tick)
 {
 	int cpu = smp_processor_id();
 	struct rq *rq = cpu_rq(cpu);
