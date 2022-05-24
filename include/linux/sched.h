@@ -2230,4 +2230,6 @@ static __always_inline void alloc_tag_restore(struct alloc_tag *tag, struct allo
 #define alloc_tag_restore(_tag, _old)		do {} while (0)
 #endif
 
+extern bool sched_smt_siblings_idle(int cpu);
+
 #endif
