@@ -5632,7 +5632,7 @@ void sched_tick(bool user_tick)
 	int cpu = smp_processor_id();
 	struct rq *rq = cpu_rq(cpu);
 	/* accounting goes to the donor task */
-	struct task_struct *donor;
+	struct task_struct *donor = rq->donor;
 	struct rq_flags rf;
 	unsigned long hw_pressure;
 	u64 resched_latency;
@@ -5640,10 +5640,12 @@ void sched_tick(bool user_tick)
 	if (housekeeping_cpu(cpu, HK_TYPE_TICK))
 		arch_scale_freq_tick();
 
+	if (sched_ipcc_enabled() && user_tick)
+		arch_update_ipcc(donor);
+
 	sched_clock_tick();
 
 	rq_lock(rq, &rf);
-	donor = rq->donor;
 
 	psi_account_irqtime(rq, donor, NULL);
 
