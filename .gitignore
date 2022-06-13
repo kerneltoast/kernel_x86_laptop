@@ -183,3 +183,6 @@ sphinx_*/
 
 # Rust analyzer configuration
 /rust-project.json
+
+# Object directory
+out/
