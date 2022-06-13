@@ -180,6 +180,8 @@ export KBUILD_EXTRA_WARN
 # The O= assignment takes precedence over the KBUILD_OUTPUT environment
 # variable.
 
+KBUILD_OUTPUT := out
+
 ifeq ("$(origin O)", "command line")
   KBUILD_OUTPUT := $(O)
 endif
