@@ -19,6 +19,11 @@ extern bool (*platform_thermal_package_rate_control)(void);
 extern void notify_hwp_interrupt(void);
 
 /* Common function to clear Package thermal status register */
+#ifdef CONFIG_X86_THERMAL_VECTOR
 extern void thermal_clear_package_intr_status(int level, u64 bit_mask);
+#else
+static inline
+void thermal_clear_package_intr_status(int level, u64 bit_mask) { }
+#endif
 
 #endif /* _INTEL_THERMAL_INTERRUPT_H */
