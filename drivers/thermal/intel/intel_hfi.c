@@ -38,6 +38,7 @@
 #include <linux/string.h>
 #include <linux/topology.h>
 #include <linux/workqueue.h>
+#include <linux/sched/topology.h>
 
 #include <asm/msr.h>
 #include <asm/intel-family.h>
