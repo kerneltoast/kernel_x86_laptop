@@ -43,6 +43,7 @@
 #include <linux/syscore_ops.h>
 #include <linux/topology.h>
 #include <linux/workqueue.h>
+#include <linux/sched/topology.h>
 
 #include <asm/msr.h>
 
