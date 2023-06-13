@@ -935,7 +935,6 @@ static bool iwl_mvm_reorder(struct iwl_mvm *mvm,
 	struct ieee80211_hdr *hdr = (void *)skb_mac_header(skb);
 	struct iwl_mvm_baid_data *baid_data;
 	struct iwl_mvm_reorder_buffer *buffer;
-	struct sk_buff *tail;
 	u32 reorder = le32_to_cpu(desc->reorder_data);
 	bool amsdu = desc->mac_flags2 & IWL_RX_MPDU_MFLG2_AMSDU;
 	bool last_subframe =
@@ -1017,6 +1016,10 @@ static bool iwl_mvm_reorder(struct iwl_mvm *mvm,
 		goto drop;
 	}
 
+	/* drop any duplicated packets */
+	if (desc->status & cpu_to_le32(IWL_RX_MPDU_STATUS_DUPLICATE))
+		goto drop;
+
 	/*
 	 * If there was a significant jump in the nssn - adjust.
 	 * If the SN is smaller than the NSSN it might need to first go into
@@ -1040,7 +1043,7 @@ static bool iwl_mvm_reorder(struct iwl_mvm *mvm,
 				 rx_status->device_timestamp, queue);
 
 	/* drop any oudated packets */
-	if (ieee80211_sn_less(sn, buffer->head_sn))
+	if (reorder & IWL_RX_MPDU_REORDER_BA_OLD_SN)
 		goto drop;
 
 	/* release immediately if allowed by nssn and no stored frames */
@@ -1088,24 +1091,8 @@ static bool iwl_mvm_reorder(struct iwl_mvm *mvm,
 		return false;
 	}
 
-	index = sn % buffer->buf_size;
-
-	/*
-	 * Check if we already stored this frame
-	 * As AMSDU is either received or not as whole, logic is simple:
-	 * If we have frames in that position in the buffer and the last frame
-	 * originated from AMSDU had a different SN then it is a retransmission.
-	 * If it is the same SN then if the subframe index is incrementing it
-	 * is the same AMSDU - otherwise it is a retransmission.
-	 */
-	tail = skb_peek_tail(&entries[index].e.frames);
-	if (tail && !amsdu)
-		goto drop;
-	else if (tail && (sn != buffer->last_amsdu ||
-			  buffer->last_sub_index >= sub_frame_idx))
-		goto drop;
-
 	/* put in reorder buffer */
+	index = sn % buffer->buf_size;
 	__skb_queue_tail(&entries[index].e.frames, skb);
 	buffer->num_stored++;
 	entries[index].e.reorder_time = jiffies;
