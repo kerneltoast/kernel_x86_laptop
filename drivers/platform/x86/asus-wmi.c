@@ -2983,6 +2983,7 @@ static int asus_wmi_fan_init(struct asus_wmi *asus)
 
 /* Fan mode *******************************************************************/
 
+static int fan_boost_mode_write(struct asus_wmi *asus);
 static int fan_boost_mode_check_present(struct asus_wmi *asus)
 {
 	u32 result;
@@ -3001,6 +3002,10 @@ static int fan_boost_mode_check_present(struct asus_wmi *asus)
 
 	asus->fan_boost_mode_available = true;
 	asus->fan_boost_mode_mask = ASUS_FAN_BOOST_MODES_MASK;
+
+	/* Set the default mode to overboost */
+	asus->fan_boost_mode = ASUS_FAN_BOOST_MODE_OVERBOOST;
+	fan_boost_mode_write(asus);
 	return 0;
 }
 
