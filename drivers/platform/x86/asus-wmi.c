@@ -3744,7 +3744,7 @@ static int throttle_thermal_policy_set_default(struct asus_wmi *asus)
 	if (!asus->throttle_thermal_policy_dev)
 		return 0;
 
-	asus->throttle_thermal_policy_mode = ASUS_THROTTLE_THERMAL_POLICY_DEFAULT;
+	asus->throttle_thermal_policy_mode = ASUS_THROTTLE_THERMAL_POLICY_OVERBOOST;
 	return throttle_thermal_policy_write(asus);
 }
 
