@@ -87,10 +87,10 @@ module_param(fnlock_default, bool, 0444);
 #define ASUS_FAN_CTRL_AUTO		2
 
 #define ASUS_FAN_BOOST_MODE_NORMAL		0
-#define ASUS_FAN_BOOST_MODE_OVERBOOST		1
-#define ASUS_FAN_BOOST_MODE_OVERBOOST_MASK	0x01
-#define ASUS_FAN_BOOST_MODE_SILENT		2
-#define ASUS_FAN_BOOST_MODE_SILENT_MASK		0x02
+#define ASUS_FAN_BOOST_MODE_SILENT		1
+#define ASUS_FAN_BOOST_MODE_SILENT_MASK		0x01
+#define ASUS_FAN_BOOST_MODE_OVERBOOST		2
+#define ASUS_FAN_BOOST_MODE_OVERBOOST_MASK	0x02
 #define ASUS_FAN_BOOST_MODES_MASK		0x03
 
 #define ASUS_THROTTLE_THERMAL_POLICY_DEFAULT	0
@@ -2999,12 +2999,8 @@ static int fan_boost_mode_check_present(struct asus_wmi *asus)
 			return err;
 	}
 
-	if ((result & ASUS_WMI_DSTS_PRESENCE_BIT) &&
-			(result & ASUS_FAN_BOOST_MODES_MASK)) {
-		asus->fan_boost_mode_available = true;
-		asus->fan_boost_mode_mask = result & ASUS_FAN_BOOST_MODES_MASK;
-	}
-
+	asus->fan_boost_mode_available = true;
+	asus->fan_boost_mode_mask = ASUS_FAN_BOOST_MODES_MASK;
 	return 0;
 }
 
@@ -3097,7 +3093,7 @@ static ssize_t fan_boost_mode_store(struct device *dev,
 	return count;
 }
 
-// Fan boost mode: 0 - normal, 1 - overboost, 2 - silent
+// Fan boost mode: 0 - normal, 1 - quiet, 2 - overboost
 static DEVICE_ATTR_RW(fan_boost_mode);
 
 /* Custom fan curves **********************************************************/
