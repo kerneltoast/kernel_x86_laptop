@@ -67,7 +67,7 @@ module_param(fnlock_default, bool, 0444);
 #define NOTIFY_KBD_BRTUP		0xc4
 #define NOTIFY_KBD_BRTDWN		0xc5
 #define NOTIFY_KBD_BRTTOGGLE		0xc7
-#define NOTIFY_KBD_FBM			0x99
+#define NOTIFY_KBD_FBM			0x9d
 #define NOTIFY_KBD_TTP			0xae
 #define NOTIFY_LID_FLIP			0xfa
 #define NOTIFY_LID_FLIP_ROG		0xbd
