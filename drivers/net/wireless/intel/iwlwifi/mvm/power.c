@@ -282,19 +282,6 @@ static bool iwl_mvm_power_allow_uapsd(struct iwl_mvm *mvm,
 	return data.allow_uapsd;
 }
 
-static bool iwl_mvm_power_is_radar(struct ieee80211_bss_conf *link_conf)
-{
-	struct ieee80211_chanctx_conf *chanctx_conf;
-
-	chanctx_conf = rcu_dereference(link_conf->chanctx_conf);
-
-	/* this happens on link switching, just ignore inactive ones */
-	if (!chanctx_conf)
-		return false;
-
-	return chanctx_conf->def.chan->flags & IEEE80211_CHAN_RADAR;
-}
-
 static void iwl_mvm_power_config_skip_dtim(struct iwl_mvm *mvm,
 					   struct ieee80211_vif *vif,
 					   struct iwl_mac_power_cmd *cmd)
@@ -321,7 +308,7 @@ static void iwl_mvm_power_config_skip_dtim(struct iwl_mvm *mvm,
 		unsigned int dtimper_tu = dtimper * link_conf->beacon_int;
 		unsigned int skip;
 
-		if (dtimper >= 10 || iwl_mvm_power_is_radar(link_conf)) {
+		if (dtimper >= 10) {
 			rcu_read_unlock();
 			return;
 		}
