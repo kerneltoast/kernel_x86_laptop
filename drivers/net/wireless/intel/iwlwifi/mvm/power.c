@@ -275,31 +275,6 @@ static bool iwl_mvm_power_allow_uapsd(struct iwl_mvm *mvm,
 	return true;
 }
 
-static bool iwl_mvm_power_is_radar(struct ieee80211_vif *vif)
-{
-	struct ieee80211_chanctx_conf *chanctx_conf;
-	struct ieee80211_bss_conf *link_conf;
-	bool radar_detect = false;
-	unsigned int link_id;
-
-	rcu_read_lock();
-	for_each_vif_active_link(vif, link_conf, link_id) {
-		chanctx_conf = rcu_dereference(link_conf->chanctx_conf);
-		/* this happens on link switching, just ignore inactive ones */
-		if (!chanctx_conf)
-			continue;
-
-		radar_detect = !!(chanctx_conf->def.chan->flags &
-				  IEEE80211_CHAN_RADAR);
-		if (radar_detect)
-			goto out;
-	}
-
-out:
-	rcu_read_unlock();
-	return radar_detect;
-}
-
 static void iwl_mvm_power_config_skip_dtim(struct iwl_mvm *mvm,
 					   struct ieee80211_vif *vif,
 					   struct iwl_mac_power_cmd *cmd)
@@ -310,9 +285,6 @@ static void iwl_mvm_power_config_skip_dtim(struct iwl_mvm *mvm,
 	/* disable, in case we're supposed to override */
 	cmd->skip_dtim_periods = 0;
 	cmd->flags &= ~cpu_to_le16(POWER_FLAGS_SKIP_OVER_DTIM_MSK);
-
-	if (iwl_mvm_power_is_radar(vif))
-		return;
 
 	if (dtimper >= 10)
 		return;
