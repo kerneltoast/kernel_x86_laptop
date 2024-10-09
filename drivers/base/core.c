@@ -9,6 +9,7 @@
  */
 
 #include <linux/acpi.h>
+#include <linux/async.h>
 #include <linux/blkdev.h>
 #include <linux/cleanup.h>
 #include <linux/cpufreq.h>
@@ -3514,6 +3515,7 @@ static int device_private_init(struct device *dev)
 	klist_init(&dev->p->klist_children, klist_children_get,
 		   klist_children_put);
 	INIT_LIST_HEAD(&dev->p->deferred_probe);
+	dev->p->shutdown_after = 0;
 	return 0;
 }
 
@@ -4804,6 +4806,8 @@ out:
 }
 EXPORT_SYMBOL_GPL(device_change_owner);
 
+static ASYNC_DOMAIN(sd_domain);
+
 static void shutdown_one_device(struct device *dev)
 {
 	/* hold lock to avoid race with probe/release */
@@ -4839,12 +4843,61 @@ static void shutdown_one_device(struct device *dev)
 		put_device(dev->parent);
 }
 
+static bool device_wants_async_shutdown(struct device *dev)
+{
+	if (dev->driver && dev->driver->async_shutdown_enable)
+		return true;
+
+	return false;
+}
+
+/**
+ * shutdown_one_device_async
+ * @data: the pointer to the struct device to be shutdown
+ * @cookie: not used
+ *
+ * Shuts down one device, after waiting for previous device to shut down (for
+ * synchronous shutdown) or waiting for device's last child or consumer to
+ * be shutdown (for async shutdown).
+ *
+ * shutdown_after is set to the shutdown cookie of the last child or consumer
+ * of this device (if any).
+ */
+static void shutdown_one_device_async(void *data, async_cookie_t cookie)
+{
+	struct device *dev = data;
+	async_cookie_t wait = cookie;
+
+	if (device_wants_async_shutdown(dev)) {
+		wait = dev->p->shutdown_after + 1;
+		/*
+		 * To prevent system hang, revert to sync shutdown in the event
+		 * that shutdown_after would make this shutdown wait for a
+		 * shutdown that hasn't been scheduled yet.
+		 *
+		 * This can happen if a parent or supplier is not ordered in the
+		 * devices_kset list before a child or consumer, which is not
+		 * expected.
+		 */
+		if (wait > cookie) {
+			wait = cookie;
+			dev_warn(dev, "Unsafe shutdown ordering, forcing sync order\n");
+		}
+	}
+
+	async_synchronize_cookie_domain(wait, &sd_domain);
+	shutdown_one_device(dev);
+}
+
 /**
  * device_shutdown - call ->shutdown() on each device to shutdown.
  */
 void device_shutdown(void)
 {
 	struct device *dev, *parent;
+	async_cookie_t cookie;
+	struct device_link *link;
+	int idx;
 
 	wait_for_device_probe();
 	device_block_probing();
@@ -4875,11 +4928,37 @@ void device_shutdown(void)
 		list_del_init(&dev->kobj.entry);
 		spin_unlock(&devices_kset->list_lock);
 
-		shutdown_one_device(dev);
+		get_device(dev);
+		get_device(parent);
+
+		cookie = async_schedule_domain(shutdown_one_device_async,
+					       dev, &sd_domain);
+		/*
+		 * Ensure any parent & suppliers will wait for this device to
+		 * shut down
+		 */
+		if (parent) {
+			parent->p->shutdown_after = cookie;
+			put_device(parent);
+		}
+
+		idx = device_links_read_lock();
+		list_for_each_entry_rcu(link, &dev->links.suppliers, c_node,
+				device_links_read_lock_held()) {
+			/*
+			 * sync_state_only devlink consumers aren't dependent on
+			 * suppliers
+			 */
+			if (!device_link_flag_is_sync_state_only(link->flags))
+				link->supplier->p->shutdown_after = cookie;
+		}
+		device_links_read_unlock(idx);
+		put_device(dev);
 
 		spin_lock(&devices_kset->list_lock);
 	}
 	spin_unlock(&devices_kset->list_lock);
+	async_synchronize_full_domain(&sd_domain);
 }
 
 /*
