@@ -3728,6 +3728,8 @@ static int throttle_thermal_policy_write(struct asus_wmi *asus)
 		return err;
 	}
 
+	pr_info("Set throttle thermal policy mode: %u\n", value);
+
 	/* Must set to disabled if mode is toggled */
 	if (asus->cpu_fan_curve_available)
 		asus->custom_fan_curves[FAN_CURVE_DEV_CPU].enabled = false;
