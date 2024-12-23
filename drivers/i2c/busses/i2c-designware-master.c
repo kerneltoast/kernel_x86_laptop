@@ -791,9 +791,6 @@ static int i2c_dw_wait_transfer(struct dw_i2c_dev *dev)
 			stat = i2c_dw_read_clear_intrbits(dev);
 			if (stat)
 				i2c_dw_process_transfer(dev, stat);
-			else
-				/* Try save some power */
-				usleep_range(3, 25);
 		} while (time_before(jiffies, timeout));
 	}
 
