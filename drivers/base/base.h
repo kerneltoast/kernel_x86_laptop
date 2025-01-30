@@ -105,6 +105,7 @@ struct driver_private {
  * @dead - This device is currently either in the process of or has been
  *	removed from the system. Any asynchronous events scheduled for this
  *	device should exit without taking any action.
+ * @async_shutdown_queued - indicates async shutdown is enqueued for this device
  *
  * Nothing outside of the driver core should ever touch these fields.
  */
@@ -119,7 +120,8 @@ struct device_private {
 	char *deferred_probe_reason;
 	async_cookie_t shutdown_after;
 	struct device *device;
-	u8 dead:1;
+	u8 dead:1,
+	   async_shutdown_queued:1;
 };
 #define to_device_private_parent(obj)	\
 	container_of(obj, struct device_private, knode_parent)
