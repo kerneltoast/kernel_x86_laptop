@@ -79,6 +79,7 @@ config DRM_AMD_ISP
 	depends on DRM_AMDGPU
 	select MFD_CORE
 	select PM_GENERIC_DOMAINS if PM
+	default y
 	help
 	Choose this option to enable ISP IP support for AMD SOCs.
 	This adds the ISP (Image Signal Processor) IP driver and wires

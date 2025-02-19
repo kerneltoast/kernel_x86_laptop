@@ -33,6 +33,7 @@ obj-y += ti/
 obj-y += verisilicon/
 obj-y += via/
 obj-y += xilinx/
+obj-y += amd/
 
 # Please place here only ancillary drivers that aren't SoC-specific
 # Please keep it alphabetically sorted by Kconfig name
