@@ -5040,15 +5040,18 @@ static struct acpi_s2idle_dev_ops asus_ally_s2idle_dev_ops = {
 	.restore = asus_ally_s2idle_restore,
 };
 
-static void asus_s2idle_check_register(void)
-{
-	if (acpi_register_lps0_dev(&asus_ally_s2idle_dev_ops))
-		pr_warn("failed to register LPS0 sleep handler in asus-wmi\n");
+static void asus_s2idle_check_register(void) {
+	// Only register for Ally devices
+	if (dmi_check_system(asus_rog_ally_device)) {
+		if (acpi_register_lps0_dev(&asus_ally_s2idle_dev_ops))
+			pr_warn("failed to register LPS0 sleep handler in asus-wmi\n");
+	}
 }
 
 static void asus_s2idle_check_unregister(void)
 {
-	acpi_unregister_lps0_dev(&asus_ally_s2idle_dev_ops);
+	if (dmi_check_system(asus_rog_ally_device))
+		acpi_unregister_lps0_dev(&asus_ally_s2idle_dev_ops);
 }
 #else
 static void asus_s2idle_check_register(void) {}
