@@ -7,6 +7,7 @@ amd_capture-objs := isp4_subdev.o \
 			isp4_phy.o \
 			isp4_interface.o \
 			isp4.o	\
+			isp4_video.o \
 			isp4_hw.o	\
 
 ccflags-y += -I$(srctree)/drivers/media/platform/amd/isp4

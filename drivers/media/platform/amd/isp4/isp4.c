@@ -337,6 +337,16 @@ static int isp4_capture_probe(struct platform_device *pdev)
 		goto err_isp4_deinit;
 	}
 
+	ret = media_create_pad_link(&isp_dev->isp_sdev.sdev.entity,
+				    1, &isp_dev->isp_sdev.isp_vdev.vdev.entity,
+				    0,
+				    MEDIA_LNK_FL_ENABLED |
+				    MEDIA_LNK_FL_IMMUTABLE);
+	if (ret) {
+		dev_err(dev, "fail to create pad link %d\n", ret);
+		goto err_unreg_video_dev_notifier;
+	}
+
 	platform_set_drvdata(pdev, isp_dev);
 
 	pm_runtime_set_suspended(dev);
@@ -344,9 +354,10 @@ static int isp4_capture_probe(struct platform_device *pdev)
 
 	return 0;
 
-err_isp4_deinit:
+err_unreg_video_dev_notifier:
 	v4l2_async_nf_unregister(&isp_dev->notifier);
 	v4l2_async_nf_cleanup(&isp_dev->notifier);
+err_isp4_deinit:
 	isp4sd_deinit(&isp_dev->isp_sdev);
 err_unreg_v4l2:
 	v4l2_device_unregister(&isp_dev->v4l2_dev);
