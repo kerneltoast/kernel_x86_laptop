@@ -168,6 +168,24 @@ static int isp4sd_enum_mbus_code(struct v4l2_subdev *isp_subdev,
 	return 0;
 }
 
+static int isp4sd_enum_frame_size(struct v4l2_subdev *isp_subdev,
+				  struct v4l2_subdev_state *state,
+				  struct v4l2_subdev_frame_size_enum *fse)
+{
+	struct v4l2_frmsize_discrete min, max;
+
+	if (fse->index >= ARRAY_SIZE(isp4sd_image_formats))
+		return -EINVAL;
+
+	isp4vid_frmsize_range(&min, &max);
+	fse->min_width = min.width;
+	fse->max_width = max.width;
+	fse->min_height = min.height;
+	fse->max_height = max.height;
+
+	return 0;
+}
+
 static bool isp4sd_get_str_out_prop(struct isp4_subdev *isp_subdev,
 				    struct isp4fw_image_prop *out_prop,
 				    struct v4l2_subdev_state *state, u32 pad)
@@ -510,25 +528,25 @@ isp4sd_get_meta_by_mc(struct isp4_subdev *isp_subdev,
 
 static struct isp4if_img_buf_node *
 isp4sd_preview_done(struct isp4_subdev *isp_subdev,
-		    struct isp4fw_meta_info *meta)
+		    struct isp4fw_meta_info *meta,
+		    struct isp4vid_framedone_param *pcb)
 {
 	struct isp4_interface *ispif = &isp_subdev->ispif;
 	struct isp4if_img_buf_node *prev = NULL;
 	struct device *dev = isp_subdev->dev;
 
-	if (!meta) {
-		dev_err(dev, "fail bad param for preview done\n");
-		return prev;
-	}
-
+	pcb->preview.status = ISP4VID_BUF_DONE_STATUS_ABSENT;
 	if (meta->preview.enabled &&
 	    (meta->preview.status == BUFFER_STATUS_SKIPPED ||
 	     meta->preview.status == BUFFER_STATUS_DONE ||
 	     meta->preview.status == BUFFER_STATUS_DIRTY)) {
 		prev = isp4if_dequeue_buffer(ispif);
-		if (!prev)
+		if (!prev) {
 			dev_err(dev, "fail null prev buf\n");
-
+		} else {
+			pcb->preview.buf = prev->buf_info;
+			pcb->preview.status = ISP4VID_BUF_DONE_STATUS_SUCCESS;
+		}
 	} else if (meta->preview.enabled) {
 		dev_err(dev, "fail bad preview status %u\n",
 			meta->preview.status);
@@ -575,6 +593,7 @@ static void isp4sd_fw_resp_frame_done(struct isp4_subdev *isp_subdev,
 				      enum isp4if_stream_id stream_id,
 				      struct isp4fw_resp_param_package *para)
 {
+	struct isp4vid_framedone_param pcb = {0};
 	struct isp4if_img_buf_node *prev = NULL;
 	struct device *dev = isp_subdev->dev;
 	struct isp4fw_meta_info *meta;
@@ -587,12 +606,17 @@ static void isp4sd_fw_resp_frame_done(struct isp4_subdev *isp_subdev,
 		return;
 	}
 
+	pcb.poc = meta->poc;
+	pcb.cam_id = 0;
+
 	dev_dbg(dev, "ts:%llu,streamId:%d,poc:%u,preview_en:%u,(%i)\n",
 		ktime_get_ns(), stream_id, meta->poc,
 		meta->preview.enabled,
 		meta->preview.status);
 
-	prev = isp4sd_preview_done(isp_subdev, meta);
+	prev = isp4sd_preview_done(isp_subdev, meta, &pcb);
+	if (pcb.preview.status != ISP4VID_BUF_DONE_STATUS_ABSENT)
+		isp4vid_notify(&isp_subdev->isp_vdev, &pcb);
 
 	isp4if_dealloc_buffer_node(prev);
 
@@ -969,6 +993,75 @@ unlock_and_check_ret:
 	return ret;
 }
 
+static int isp4sd_ioc_send_img_buf(struct isp4vid_dev *sd,
+				   struct isp4if_img_buf_info *buf_info)
+{
+	struct isp4_subdev *isp_subdev = to_isp4_vdev(sd);
+	struct isp4_interface *ispif = &isp_subdev->ispif;
+	struct isp4if_img_buf_node *buf_node = NULL;
+	struct device *dev = isp_subdev->dev;
+	int ret = -EINVAL;
+
+	mutex_lock(&isp_subdev->ops_mutex);
+	/* TODO: remove isp_status */
+	if (ispif->status != ISP4IF_STATUS_FW_RUNNING) {
+		dev_err(dev, "fail send img buf for bad fsm %d\n",
+			ispif->status);
+		mutex_unlock(&isp_subdev->ops_mutex);
+		return -EINVAL;
+	}
+
+	buf_node = isp4if_alloc_buffer_node(buf_info);
+	if (!buf_node) {
+		dev_err(dev, "fail alloc sys img buf info node\n");
+		ret = -ENOMEM;
+		goto unlock_and_return;
+	}
+
+	ret = isp4if_queue_buffer(ispif, buf_node);
+	if (ret) {
+		dev_err(dev, "fail to queue image buf, %d\n", ret);
+		goto error_release_buf_node;
+	}
+
+	if (!isp_subdev->sensor_info.start_stream_cmd_sent) {
+		isp_subdev->sensor_info.buf_sent_cnt++;
+
+		if (isp_subdev->sensor_info.buf_sent_cnt >=
+		    ISP4SD_MIN_BUF_CNT_BEF_START_STREAM) {
+			ret = isp4if_send_command(ispif, CMD_ID_START_STREAM,
+						  NULL, 0);
+
+			if (ret) {
+				dev_err(dev, "fail to START_STREAM");
+				goto error_release_buf_node;
+			}
+			isp_subdev->sensor_info.start_stream_cmd_sent = true;
+			isp_subdev->sensor_info.output_info.start_status =
+				ISP4SD_START_STATUS_STARTED;
+			isp_subdev->sensor_info.status =
+				ISP4SD_START_STATUS_STARTED;
+		} else {
+			dev_dbg(dev,
+				"no send start,required %u,buf sent %u\n",
+				ISP4SD_MIN_BUF_CNT_BEF_START_STREAM,
+				isp_subdev->sensor_info.buf_sent_cnt);
+		}
+	}
+
+	mutex_unlock(&isp_subdev->ops_mutex);
+
+	return 0;
+
+error_release_buf_node:
+	isp4if_dealloc_buffer_node(buf_node);
+
+unlock_and_return:
+	mutex_unlock(&isp_subdev->ops_mutex);
+
+	return ret;
+}
+
 static int isp4sd_subdev_pre_streamon(struct v4l2_subdev *sd, u32 flags)
 {
 	struct isp4_subdev *isp_subdev = to_isp4_subdev(sd);
@@ -1087,6 +1180,7 @@ static int isp4sd_disable_streams(struct v4l2_subdev *sd,
 
 static const struct v4l2_subdev_pad_ops isp4sd_pad_ops = {
 	.enum_mbus_code	= isp4sd_enum_mbus_code,
+	.enum_frame_size = isp4sd_enum_frame_size,
 	.get_fmt = v4l2_subdev_get_fmt,
 	.set_fmt = isp4sd_set_pad_format,
 	.enable_streams = isp4sd_enable_streams,
@@ -1106,6 +1200,10 @@ static int isp4sd_sdev_link_validate(struct media_link *link)
 
 static const struct media_entity_operations isp4sd_sdev_ent_ops = {
 	.link_validate = isp4sd_sdev_link_validate,
+};
+
+static const struct isp4vid_ops isp4sd_isp4vid_ops = {
+	.send_buffer = isp4sd_ioc_send_img_buf,
 };
 
 int isp4sd_init(struct isp4_subdev *isp_subdev,
@@ -1171,6 +1269,8 @@ int isp4sd_init(struct isp4_subdev *isp_subdev,
 	isp_subdev->host2fw_seq_num = 1;
 	ispif->status = ISP4IF_STATUS_PWR_OFF;
 
+	ret = isp4vid_dev_init(&isp_subdev->isp_vdev, &isp_subdev->sdev,
+			       &isp4sd_isp4vid_ops, amdgpu_dev);
 	if (ret)
 		goto err_media_clean_up;
 	return ret;
@@ -1184,6 +1284,7 @@ void isp4sd_deinit(struct isp4_subdev *isp_subdev)
 {
 	struct isp4_interface *ispif = &isp_subdev->ispif;
 
+	isp4vid_dev_deinit(&isp_subdev->isp_vdev);
 	media_entity_cleanup(&isp_subdev->sdev.entity);
 	isp4if_deinit(ispif);
 	isp4sd_module_enable(isp_subdev, false);
