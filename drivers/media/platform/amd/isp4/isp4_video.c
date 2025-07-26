@@ -219,9 +219,6 @@ static void isp4vid_vb2_detach_dmabuf(void *mem_priv)
 	if (buf->vaddr)
 		dma_buf_vunmap_unlocked(buf->dbuf, &map);
 
-	// put dmabuf for exported ones
-	dma_buf_put(buf->dbuf);
-
 	kfree(buf);
 }
 
@@ -476,18 +473,22 @@ static struct dma_buf *isp4vid_vb2_get_dmabuf(struct vb2_buffer *vb,
 					      unsigned long flags)
 {
 	struct isp4vid_vb2_buf *buf = buf_priv;
-	struct dma_buf *dbuf;
+	struct dma_buf *dbuf = buf->dbuf;
 
-	if (buf->dbuf) {
+	if (dbuf) {
 		dev_dbg(buf->dev,
-			"dbuf already created, reuse implicit dbuf\n");
-		dbuf = buf->dbuf;
+			"dbuf already created, reuse %s dbuf\n",
+			buf->is_expbuf ? "explicit" : "implicit");
+		get_dma_buf(dbuf);
 	} else {
 		dbuf = isp4vid_get_dmabuf(vb, buf_priv, flags);
+		if (!dbuf)
+			return NULL;
+
 		dev_dbg(buf->dev, "created new dbuf\n");
+		buf->is_expbuf = true;
+		refcount_inc(&buf->refcount);
 	}
-	buf->is_expbuf = true;
-	refcount_inc(&buf->refcount);
 
 	dev_dbg(buf->dev, "buf exported, refcount %d\n",
 		buf->refcount.refs.counter);
@@ -584,8 +585,9 @@ static void isp4vid_vb2_put(void *buf_priv)
 {
 	struct isp4vid_vb2_buf *buf = (struct isp4vid_vb2_buf *)buf_priv;
 	struct amdgpu_bo *bo = (struct amdgpu_bo *)buf->bo;
+	struct device *dev = buf->dev;
 
-	dev_dbg(buf->dev,
+	dev_dbg(dev,
 		"release isp user bo 0x%llx size %ld refcount %d is_expbuf %d",
 		buf->gpu_addr, buf->size,
 		buf->refcount.refs.counter, buf->is_expbuf);
@@ -601,8 +603,7 @@ static void isp4vid_vb2_put(void *buf_priv)
 		kfree(buf);
 		buf = NULL;
 	} else {
-		dev_warn(buf->dev, "ignore buffer free, refcount %u > 0",
-			 refcount_read(&buf->refcount));
+		dev_warn(dev, "ignore buffer free, refcount > 0\n");
 	}
 }
 
