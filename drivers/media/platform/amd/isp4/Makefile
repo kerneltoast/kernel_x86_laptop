@@ -4,12 +4,12 @@
 
 obj-$(CONFIG_AMD_ISP4) += amd_capture.o
 amd_capture-objs := isp4_subdev.o \
-			isp4_debug.o \
-			isp4_phy.o \
-			isp4_interface.o \
-			isp4.o	\
-			isp4_video.o \
-			isp4_hw.o	\
+		    isp4_debug.o \
+		    isp4_phy.o \
+		    isp4_interface.o \
+		    isp4.o \
+		    isp4_video.o \
+		    isp4_hw.o
 
 ccflags-y += $(call cc-option,-Wmaybe-uninitialized)
 ccflags-y += $(call cc-option,-Wmissing-include-dirs)
