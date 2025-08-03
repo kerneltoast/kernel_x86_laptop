@@ -1,5 +1,3 @@
-# Copyright 2024 Advanced Micro Devices, Inc.
-# add isp block
-ifneq ($(CONFIG_AMD_ISP4),)
+# SPDX-License-Identifier: GPL-2.0+
+
 obj-y += isp4/
-endif
