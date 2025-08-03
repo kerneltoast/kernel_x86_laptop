@@ -11,20 +11,6 @@ amd_capture-objs := isp4_subdev.o \
 			isp4_video.o \
 			isp4_hw.o	\
 
-ccflags-y += -I$(srctree)/drivers/media/platform/amd/isp4
-ccflags-y += -I$(srctree)/drivers/gpu/drm/amd/include
-ccflags-y += -I$(srctree)/drivers/gpu/drm/amd/amdgpu
-ccflags-y += -I$(srctree)/drivers/gpu/drm/amd/pm/inc
-ccflags-y += -I$(srctree)/include/drm
-ccflags-y += -I$(srctree)/include
-ccflags-y += -I$(srctree)/include/uapi/drm
-ccflags-y += -I$(srctree)/drivers/gpu/drm/amd/acp/include
-ccflags-y += -I$(srctree)/drivers/gpu/drm/amd/display
-ccflags-y += -I$(srctree)/drivers/gpu/drm/amd/display/include
-ccflags-y += -I$(srctree)/drivers/gpu/drm/amd/display/modules/inc
-ccflags-y += -I$(srctree)/drivers/gpu/drm/amd/display/dc
-ccflags-y += -I$(srctree)/drivers/gpu/drm/amd/display/amdgpu_dm
-
 ccflags-y += -Wunused-but-set-variable
 ccflags-y += -Wmissing-include-dirs
 ccflags-y += -Wunused-const-variable
