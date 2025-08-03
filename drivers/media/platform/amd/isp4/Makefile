@@ -11,8 +11,8 @@ amd_capture-objs := isp4_subdev.o \
 			isp4_video.o \
 			isp4_hw.o	\
 
-ccflags-y += -Wunused-but-set-variable
-ccflags-y += -Wmissing-include-dirs
-ccflags-y += -Wunused-const-variable
-ccflags-y += -Wmaybe-uninitialized
-ccflags-y += -Wunused-value
+ccflags-y += $(call cc-option,-Wmaybe-uninitialized)
+ccflags-y += $(call cc-option,-Wmissing-include-dirs)
+ccflags-y += $(call cc-option,-Wunused-but-set-variable)
+ccflags-y += $(call cc-option,-Wunused-const-variable)
+ccflags-y += $(call cc-option,-Wunused-value)
