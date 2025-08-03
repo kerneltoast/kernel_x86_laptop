@@ -25,11 +25,6 @@ ccflags-y += -I$(srctree)/drivers/gpu/drm/amd/display/modules/inc
 ccflags-y += -I$(srctree)/drivers/gpu/drm/amd/display/dc
 ccflags-y += -I$(srctree)/drivers/gpu/drm/amd/display/amdgpu_dm
 
-ifneq ($(call cc-option, -mpreferred-stack-boundary=4),)
-	cc_stack_align := -mpreferred-stack-boundary=4
-endif
-
-ccflags-y += $(cc_stack_align)
 ccflags-y += -DCONFIG_COMPAT
 ccflags-y += -Wunused-but-set-variable
 ccflags-y += -Wmissing-include-dirs
