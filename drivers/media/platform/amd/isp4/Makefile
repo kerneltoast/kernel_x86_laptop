@@ -25,7 +25,6 @@ ccflags-y += -I$(srctree)/drivers/gpu/drm/amd/display/modules/inc
 ccflags-y += -I$(srctree)/drivers/gpu/drm/amd/display/dc
 ccflags-y += -I$(srctree)/drivers/gpu/drm/amd/display/amdgpu_dm
 
-ccflags-y += -DCONFIG_COMPAT
 ccflags-y += -Wunused-but-set-variable
 ccflags-y += -Wmissing-include-dirs
 ccflags-y += -Wunused-const-variable
