@@ -2,7 +2,6 @@
 
 config AMD_ISP4
 	tristate "AMD ISP4 and camera driver"
-	default y
 	depends on VIDEO_DEV && VIDEO_V4L2_SUBDEV_API
 	select VIDEOBUF2_CORE
 	select VIDEOBUF2_V4L2
