@@ -151,10 +151,6 @@ static unsigned int isp4vid_vb2_num_users(void *buf_priv)
 {
 	struct isp4vid_vb2_buf *buf = buf_priv;
 
-	if (!buf) {
-		pr_err("fail null buf handle\n");
-		return 0;
-	}
 	return refcount_read(&buf->refcount);
 }
 
@@ -189,11 +185,6 @@ static void *isp4vid_vb2_vaddr(struct vb2_buffer *vb, void *buf_priv)
 {
 	struct isp4vid_vb2_buf *buf = buf_priv;
 
-	if (!buf) {
-		pr_err("fail for empty buf\n");
-		return NULL;
-	}
-
 	if (!buf->vaddr) {
 		dev_err(buf->dev,
 			"fail for buf vaddr is null\n");
@@ -205,12 +196,6 @@ static void *isp4vid_vb2_vaddr(struct vb2_buffer *vb, void *buf_priv)
 static void isp4vid_vb2_detach_dmabuf(void *mem_priv)
 {
 	struct isp4vid_vb2_buf *buf = mem_priv;
-
-	if (!buf) {
-		pr_err("fail invalid buf handle\n");
-		return;
-	}
-
 	struct iosys_map map = IOSYS_MAP_INIT_VADDR(buf->vaddr);
 
 	dev_dbg(buf->dev, "detach dmabuf of isp user bo 0x%llx size %ld",
@@ -257,12 +242,6 @@ static void *isp4vid_vb2_attach_dmabuf(struct vb2_buffer *vb,
 static void isp4vid_vb2_unmap_dmabuf(void *mem_priv)
 {
 	struct isp4vid_vb2_buf *buf = mem_priv;
-
-	if (!buf) {
-		pr_err("fail invalid buf handle\n");
-		return;
-	}
-
 	struct iosys_map map = IOSYS_MAP_INIT_VADDR(buf->vaddr);
 
 	dev_dbg(buf->dev, "unmap dmabuf of isp user bo 0x%llx size %ld",
@@ -280,11 +259,6 @@ static int isp4vid_vb2_map_dmabuf(void *mem_priv)
 	int ret;
 
 	memset(&map, 0x0, sizeof(map));
-
-	if (!buf) {
-		pr_err("fail invalid buf handle\n");
-		return -EINVAL;
-	}
 
 	ret = dma_buf_vmap_unlocked(buf->dbuf, &map);
 	if (ret) {
@@ -450,11 +424,6 @@ static struct dma_buf *isp4vid_get_dmabuf(struct vb2_buffer *vb,
 	struct isp4vid_vb2_buf *buf = buf_priv;
 	DEFINE_DMA_BUF_EXPORT_INFO(exp_info);
 	struct dma_buf *dbuf;
-
-	if (!buf) {
-		pr_err("fail invalid buf handle\n");
-		return ERR_PTR(-EINVAL);
-	}
 
 	exp_info.ops = &vb2_isp4vid_dmabuf_ops;
 	exp_info.size = buf->size;
@@ -1148,11 +1117,6 @@ static void isp4vid_qops_buffer_cleanup(struct vb2_buffer *vb)
 
 	dev_dbg(isp_vdev->dev, "%s|index=%u vb->memory %u",
 		isp_vdev->vdev.name, vb->index, vb->memory);
-
-	if (!buf) {
-		dev_err(isp_vdev->dev, "Invalid buf handle");
-		return;
-	}
 
 	// release implicit dmabuf reference here for vb2 buffer
 	// of type MMAP and is exported
