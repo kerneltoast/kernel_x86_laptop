@@ -192,10 +192,6 @@ static unsigned int vb2_amdisp_num_users(void *buf_priv)
 {
 	struct vb2_amdisp_buf *buf = buf_priv;
 
-	if (!buf) {
-		pr_err("Invalid buf handle");
-		return 0;
-	}
 	return refcount_read(&buf->refcount);
 }
 
@@ -230,11 +226,6 @@ static void *vb2_amdisp_vaddr(struct vb2_buffer *vb, void *buf_priv)
 {
 	struct vb2_amdisp_buf *buf = buf_priv;
 
-	if (!buf) {
-		pr_err("Invalid buf handle");
-		return NULL;
-	}
-
 	if (!buf->vaddr) {
 		dev_err(buf->dev, "Addr of an unallocated plane requested or cannot map user pointer");
 		return NULL;
@@ -245,12 +236,6 @@ static void *vb2_amdisp_vaddr(struct vb2_buffer *vb, void *buf_priv)
 static void vb2_amdisp_detach_dmabuf(void *mem_priv)
 {
 	struct vb2_amdisp_buf *buf = mem_priv;
-
-	if (!buf) {
-		pr_err("Invalid buf handle");
-		return;
-	}
-
 	struct iosys_map map = IOSYS_MAP_INIT_VADDR(buf->vaddr);
 
 	dev_dbg(buf->dev, "detach dmabuf of isp user bo 0x%llx size %ld",
@@ -297,12 +282,6 @@ static void *vb2_amdisp_attach_dmabuf(struct vb2_buffer *vb,
 static void vb2_amdisp_unmap_dmabuf(void *mem_priv)
 {
 	struct vb2_amdisp_buf *buf = mem_priv;
-
-	if (!buf) {
-		pr_err("Invalid buf handle");
-		return;
-	}
-
 	struct iosys_map map = IOSYS_MAP_INIT_VADDR(buf->vaddr);
 
 	dev_dbg(buf->dev, "unmap dmabuf of isp user bo 0x%llx size %ld",
@@ -320,11 +299,6 @@ static int vb2_amdisp_map_dmabuf(void *mem_priv)
 	struct vb2_amdisp_buf *mmap_buf = NULL;
 
 	memset(&map, 0x0, sizeof(map));
-
-	if (!buf) {
-		pr_err("Invalid buf handle");
-		return -EINVAL;
-	}
 
 	ret = dma_buf_vmap_unlocked(buf->dbuf, &map);
 	if (ret) {
@@ -489,11 +463,6 @@ static struct dma_buf *get_dmabuf(struct vb2_buffer *vb,
 	struct vb2_amdisp_buf *buf = buf_priv;
 	struct dma_buf *dbuf;
 	DEFINE_DMA_BUF_EXPORT_INFO(exp_info);
-
-	if (!buf) {
-		pr_err("Invalid buf handle");
-		return ERR_PTR(-EINVAL);
-	}
 
 	exp_info.ops = &vb2_amdisp_dmabuf_ops;
 	exp_info.size = buf->size;
@@ -1352,11 +1321,6 @@ static void isp4_qops_buffer_cleanup(struct vb2_buffer *vb)
 
 	dev_dbg(dev, "%s|index=%u vb->memory %u", ctx->vdev.name,
 		vb->index, vb->memory);
-
-	if (!buf) {
-		dev_err(dev, "Invalid buf handle");
-		return;
-	}
 
 	// release implicit dmabuf reference here for vb2 buffer
 	// of type MMAP and is exported
