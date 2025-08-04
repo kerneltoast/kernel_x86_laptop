@@ -44,6 +44,7 @@
 #include <drm/ttm/ttm_tt.h>
 #include <linux/page_ref.h>
 #include <linux/random.h>
+#include <linux/pm_runtime.h>
 
 #include "isp_module_intf.h"
 #include "isp_core.h"
@@ -1947,6 +1948,9 @@ static int amd_capture_probe(struct platform_device *pdev)
 	}
 
 	platform_set_drvdata(pdev, cam);
+
+	pm_runtime_set_suspended(dev);
+	pm_runtime_enable(dev);
 
 	isp_debugfs_create(cam);
 

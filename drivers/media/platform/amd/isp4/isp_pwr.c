@@ -24,6 +24,8 @@
 #include <linux/mutex.h>
 #include <linux/slab.h>
 #include <linux/delay.h>
+#include <linux/pm_runtime.h>
+#include <linux/pm_domain.h>
 
 #include "isp_debug.h"
 #include "isp_common.h"
@@ -35,6 +37,9 @@
 #include "isp_mc_addr_mgr.h"
 #include "isp_pwr.h"
 #include "isp_param.h"
+
+#define ISP4SD_PERFORMANCE_STATE_LOW 0
+#define ISP4SD_PERFORMANCE_STATE_HIGH 1
 
 struct isp_dpm_value isp_v4_1_1_dpm_value[] = {
 	{ISP_V4_1_1_DPM0_SOCCLK, ISP_V4_1_1_DPM0_ISPICLK, ISP_V4_1_1_DPM0_ISPXCLK},
@@ -100,9 +105,6 @@ int isp_ip_pwr_on(struct isp_context *isp, enum camera_port_id cid,
 	struct device *dev;
 	int ret;
 	struct isp_pwr_unit *pwr_unit;
-	u32 xclk;
-	u32 iclk;
-	u32 sclk;
 
 	if (!isp) {
 		pr_err("fail for null isp");
@@ -117,18 +119,25 @@ int isp_ip_pwr_on(struct isp_context *isp, enum camera_port_id cid,
 	mutex_lock(&pwr_unit->pwr_status_mutex);
 
 	if (pwr_unit->pwr_status == ISP_PWR_UNIT_STATUS_OFF) {
-		u32 reg;
+		unsigned int perf_state = ISP4SD_PERFORMANCE_STATE_HIGH;
+
+		ret = pm_runtime_resume_and_get(dev);
+		if (ret) {
+			dev_err(dev, "fail to power on isp_subdev ret %d\n",
+				ret);
+			goto quit;
+		}
 
 		isp->isp_semaphore_acq_cnt = 0;
-		isp_power_set(true);
 		/* ISPPG ISP Power Status */
 		isp_hwa_wreg(isp, ISP_POWER_STATUS, 0x7FF);
-
-		reg = isp_hwa_rreg(isp, ISP_VERSION);
-		dev_dbg(dev, "hw ver 0x%x", reg);
-
-		reg = isp_hwa_rreg(isp, ISP_STATUS);
-		dev_dbg(dev, "ISP status  0x%x", reg);
+		ret = dev_pm_genpd_set_performance_state(dev, perf_state);
+		if (ret) {
+			dev_err(dev,
+				"fail to set performance state %u, ret %d\n",
+				perf_state, ret);
+			goto quit;
+		}
 
 		if (isp_start_resp_proc_threads(isp)) {
 			dev_err(dev, "isp_start_resp_proc_threads fail");
@@ -139,21 +148,10 @@ int isp_ip_pwr_on(struct isp_context *isp, enum camera_port_id cid,
 		}
 	}
 
-	isp_get_clks(isp, cid, &xclk, &iclk, &sclk);
-	/* set clocks */
-	isp_hwa_clock_set(isp, xclk, iclk, sclk);
-
 	if (pwr_unit->pwr_status == ISP_PWR_UNIT_STATUS_OFF)
 		pwr_unit->pwr_status = ISP_PWR_UNIT_STATUS_ON;
 
 	if (ISP_GET_STATUS(isp) == ISP_STATUS_PWR_OFF) {
-		/* commit it temporarily, it ISP can work, will remove it later */
-		/* isp_hw_reset_all(isp); */
-		/* should be 24M */
-		if (isp->refclk != 24) {
-			dev_err(dev, "fail isp->refclk %u should be 24",
-				isp->refclk);
-		}
 		/* isp_i2c_init(isp->iclk); */
 		/* change to following according to aidt */
 		ISP_SET_STATUS(isp, ISP_STATUS_PWR_ON);
@@ -170,6 +168,8 @@ int isp_ip_pwr_off(struct isp_context *isp)
 {
 	struct device *dev;
 	struct isp_pwr_unit *pwr_unit;
+	unsigned int perf_state = ISP4SD_PERFORMANCE_STATE_LOW;
+	int ret;
 
 	if (!isp) {
 		pr_err("fail for null isp");
@@ -186,23 +186,28 @@ int isp_ip_pwr_off(struct isp_context *isp)
 	if (pwr_unit->pwr_status == ISP_PWR_UNIT_STATUS_OFF) {
 		dev_dbg(dev, "suc do none");
 	} else {
+		ret = dev_pm_genpd_set_performance_state(dev, perf_state);
+		if (ret)
+			dev_err(dev,
+				"fail to set isp_subdev performance state %u,ret %d\n",
+				perf_state, ret);
+
 		/* hold ccpu reset */
 		isp_hwa_wreg(isp, ISP_SOFT_RESET, 0x0);
 
 		isp_hwa_wreg(isp, ISP_POWER_STATUS, 0);
 
 		dev_dbg(dev, "disable isp power tile");
-		isp_power_set(false);
+		ret = pm_runtime_put_sync(dev);
+		if (ret)
+			dev_err(dev, "power off isp_subdev fail %d\n", ret);
+		else
+			dev_dbg(dev, "power off isp_subdev suc\n");
 
 		pwr_unit->pwr_status = ISP_PWR_UNIT_STATUS_OFF;
 		ISP_SET_STATUS(isp, ISP_STATUS_PWR_OFF);
-		isp->sclk = 0;
-		isp->iclk = 0;
-		isp->xclk = 0;
-		isp->refclk = 24; /* default value */
 		dev_dbg(dev, "ISP Power off");
 	}
-	isp->clk_info_set_2_fw = 0;
 	for (enum camera_port_id cam_port_id = 0; cam_port_id < CAMERA_PORT_MAX;
 	     cam_port_id++)
 		isp->snr_info_set_2_fw[cam_port_id] = 0;
