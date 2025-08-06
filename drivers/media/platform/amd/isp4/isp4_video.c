@@ -175,6 +175,14 @@ static int isp4vid_vb2_mmap(void *buf_priv, struct vm_area_struct *vma)
 	 */
 	vm_flags_set(vma, VM_DONTEXPAND);
 
+	/*
+	 * Use common vm_area operations to track buffer refcount.
+	 */
+	vma->vm_private_data	= &buf->handler;
+	vma->vm_ops		= &vb2_common_vm_ops;
+
+	vma->vm_ops->open(vma);
+
 	dev_dbg(buf->dev, "mmap isp user bo 0x%llx size %ld refcount %d\n",
 		buf->gpu_addr, buf->size, refcount_read(&buf->refcount));
 
