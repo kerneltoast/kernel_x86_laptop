@@ -204,16 +204,9 @@ static void *isp4vid_vb2_vaddr(struct vb2_buffer *vb, void *buf_priv)
 static void isp4vid_vb2_detach_dmabuf(void *mem_priv)
 {
 	struct isp4vid_vb2_buf *buf = mem_priv;
-	struct iosys_map map = IOSYS_MAP_INIT_VADDR(buf->vaddr);
 
 	dev_dbg(buf->dev, "detach dmabuf of isp user bo 0x%llx size %ld",
 		buf->gpu_addr, buf->size);
-
-	if (buf->vaddr)
-		dma_buf_vunmap_unlocked(buf->dbuf, &map);
-
-	// put dmabuf for exported ones
-	dma_buf_put(buf->dbuf);
 
 	kfree(buf);
 }
