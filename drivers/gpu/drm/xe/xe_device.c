@@ -64,6 +64,7 @@
 #include "xe_ttm_sys_mgr.h"
 #include "xe_vm.h"
 #include "xe_vram.h"
+#include "xe_vram_types.h"
 #include "xe_vsec.h"
 #include "xe_wait_user_fence.h"
 #include "xe_wa.h"
@@ -688,6 +689,21 @@ static void sriov_update_device_info(struct xe_device *xe)
 	}
 }
 
+static int xe_device_vram_alloc(struct xe_device *xe)
+{
+	struct xe_vram_region *vram;
+
+	if (!IS_DGFX(xe))
+		return 0;
+
+	vram = drmm_kzalloc(&xe->drm, sizeof(*vram), GFP_KERNEL);
+	if (!vram)
+		return -ENOMEM;
+
+	xe->mem.vram = vram;
+	return 0;
+}
+
 /**
  * xe_device_probe_early: Device early probe
  * @xe: xe device instance
@@ -734,6 +750,10 @@ int xe_device_probe_early(struct xe_device *xe)
 		return err;
 
 	xe->wedged.mode = xe_modparam.wedged_mode;
+
+	err = xe_device_vram_alloc(xe);
+	if (err)
+		return err;
 
 	return 0;
 }
@@ -863,7 +883,7 @@ int xe_device_probe(struct xe_device *xe)
 	}
 
 	if (xe->tiles->media_gt &&
-	    XE_WA(xe->tiles->media_gt, 15015404425_disable))
+	    XE_GT_WA(xe->tiles->media_gt, 15015404425_disable))
 		XE_DEVICE_WA_DISABLE(xe, 15015404425);
 
 	err = xe_devcoredump_init(xe);
@@ -920,6 +940,10 @@ int xe_device_probe(struct xe_device *xe)
 		xe_gt_sanitize_freq(gt);
 
 	xe_vsec_init(xe);
+
+	err = xe_sriov_late_init(xe);
+	if (err)
+		goto err_unregister_display;
 
 	return devm_add_action_or_reset(xe->drm.dev, xe_device_sanitize, xe);
 
@@ -1019,7 +1043,7 @@ void xe_device_l2_flush(struct xe_device *xe)
 
 	gt = xe_root_mmio_gt(xe);
 
-	if (!XE_WA(gt, 16023588340))
+	if (!XE_GT_WA(gt, 16023588340))
 		return;
 
 	fw_ref = xe_force_wake_get(gt_to_fw(gt), XE_FW_GT);
@@ -1063,7 +1087,7 @@ void xe_device_td_flush(struct xe_device *xe)
 		return;
 
 	root_gt = xe_root_mmio_gt(xe);
-	if (XE_WA(root_gt, 16023588340)) {
+	if (XE_GT_WA(root_gt, 16023588340)) {
 		/* A transient flush is not sufficient: flush the L2 */
 		xe_device_l2_flush(xe);
 	} else {

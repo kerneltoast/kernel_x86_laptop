@@ -35,6 +35,7 @@ $(obj)/generated/%_device_wa_oob.c $(obj)/generated/%_device_wa_oob.h: $(obj)/xe
 xe-y += xe_bb.o \
 	xe_bo.o \
 	xe_bo_evict.o \
+	xe_dep_scheduler.o \
 	xe_devcoredump.o \
 	xe_device.o \
 	xe_device_sysfs.o \
@@ -61,6 +62,7 @@ xe-y += xe_bb.o \
 	xe_gt_sysfs.o \
 	xe_gt_throttle.o \
 	xe_gt_tlb_invalidation.o \
+	xe_gt_tlb_inval_job.o \
 	xe_gt_topology.o \
 	xe_guc.o \
 	xe_guc_ads.o \
@@ -85,6 +87,7 @@ xe-y += xe_bb.o \
 	xe_lrc.o \
 	xe_migrate.o \
 	xe_mmio.o \
+	xe_mmio_gem.o \
 	xe_mocs.o \
 	xe_module.o \
 	xe_nvm.o \
@@ -149,6 +152,7 @@ xe-y += \
 	xe_memirq.o \
 	xe_sriov.o \
 	xe_sriov_vf.o \
+	xe_sriov_vf_ccs.o \
 	xe_tile_sriov_vf.o
 
 xe-$(CONFIG_PCI_IOV) += \

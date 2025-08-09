@@ -210,6 +210,8 @@ struct xe_gt {
 		 * xe_gt_tlb_fence_timeout after the timeut interval is over.
 		 */
 		struct delayed_work fence_tdr;
+		/** @wtlb_invalidation.wq: schedules GT TLB invalidation jobs */
+		struct workqueue_struct *job_wq;
 		/** @tlb_invalidation.lock: protects TLB invalidation fences */
 		spinlock_t lock;
 	} tlb_invalidation;
@@ -411,7 +413,7 @@ struct xe_gt {
 		unsigned long *oob;
 		/**
 		 * @wa_active.oob_initialized: mark oob as initialized to help
-		 * detecting misuse of XE_WA() - it can only be called on
+		 * detecting misuse of XE_GT_WA() - it can only be called on
 		 * initialization after OOB WAs have being processed
 		 */
 		bool oob_initialized;

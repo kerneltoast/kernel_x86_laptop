@@ -12,9 +12,9 @@
 #include <linux/string.h>
 
 #include "xe_configfs.h"
-#include "xe_module.h"
-
 #include "xe_hw_engine_types.h"
+#include "xe_module.h"
+#include "xe_pci_types.h"
 
 /**
  * DOC: Xe Configfs
@@ -85,15 +85,27 @@
  *	rmdir /sys/kernel/config/xe/0000:03:00.0/
  */
 
-struct xe_config_device {
+struct xe_config_group_device {
 	struct config_group group;
 
-	bool survivability_mode;
-	u64 engines_allowed;
+	struct xe_config_device {
+		bool survivability_mode;
+		u64 engines_allowed;
+	} config;
 
 	/* protects attributes */
 	struct mutex lock;
 };
+
+static const struct xe_config_device device_defaults = {
+	.survivability_mode = false,
+	.engines_allowed = U64_MAX,
+};
+
+static void set_device_defaults(struct xe_config_device *config)
+{
+	*config = device_defaults;
+}
 
 struct engine_info {
 	const char *cls;
@@ -113,9 +125,14 @@ static const struct engine_info engine_info[] = {
 	{ .cls = "gsccs", .mask = XE_HW_ENGINE_GSCCS_MASK },
 };
 
+static struct xe_config_group_device *to_xe_config_group_device(struct config_item *item)
+{
+	return container_of(to_config_group(item), struct xe_config_group_device, group);
+}
+
 static struct xe_config_device *to_xe_config_device(struct config_item *item)
 {
-	return container_of(to_config_group(item), struct xe_config_device, group);
+	return &to_xe_config_group_device(item)->config;
 }
 
 static ssize_t survivability_mode_show(struct config_item *item, char *page)
@@ -127,7 +144,7 @@ static ssize_t survivability_mode_show(struct config_item *item, char *page)
 
 static ssize_t survivability_mode_store(struct config_item *item, const char *page, size_t len)
 {
-	struct xe_config_device *dev = to_xe_config_device(item);
+	struct xe_config_group_device *dev = to_xe_config_group_device(item);
 	bool survivability_mode;
 	int ret;
 
@@ -136,7 +153,7 @@ static ssize_t survivability_mode_store(struct config_item *item, const char *pa
 		return ret;
 
 	mutex_lock(&dev->lock);
-	dev->survivability_mode = survivability_mode;
+	dev->config.survivability_mode = survivability_mode;
 	mutex_unlock(&dev->lock);
 
 	return len;
@@ -199,7 +216,7 @@ static bool lookup_engine_mask(const char *pattern, u64 *mask)
 static ssize_t engines_allowed_store(struct config_item *item, const char *page,
 				     size_t len)
 {
-	struct xe_config_device *dev = to_xe_config_device(item);
+	struct xe_config_group_device *dev = to_xe_config_group_device(item);
 	size_t patternlen, p;
 	u64 mask, val = 0;
 
@@ -220,7 +237,7 @@ static ssize_t engines_allowed_store(struct config_item *item, const char *page,
 	}
 
 	mutex_lock(&dev->lock);
-	dev->engines_allowed = val;
+	dev->config.engines_allowed = val;
 	mutex_unlock(&dev->lock);
 
 	return len;
@@ -237,7 +254,7 @@ static struct configfs_attribute *xe_config_device_attrs[] = {
 
 static void xe_config_device_release(struct config_item *item)
 {
-	struct xe_config_device *dev = to_xe_config_device(item);
+	struct xe_config_group_device *dev = to_xe_config_group_device(item);
 
 	mutex_destroy(&dev->lock);
 	kfree(dev);
@@ -253,29 +270,81 @@ static const struct config_item_type xe_config_device_type = {
 	.ct_owner	= THIS_MODULE,
 };
 
+static const struct xe_device_desc *xe_match_desc(struct pci_dev *pdev)
+{
+	struct device_driver *driver = driver_find("xe", &pci_bus_type);
+	struct pci_driver *drv = to_pci_driver(driver);
+	const struct pci_device_id *ids = drv ? drv->id_table : NULL;
+	const struct pci_device_id *found = pci_match_id(ids, pdev);
+
+	return found ? (const void *)found->driver_data : NULL;
+}
+
+static struct pci_dev *get_physfn_instead(struct pci_dev *virtfn)
+{
+	struct pci_dev *physfn = pci_physfn(virtfn);
+
+	pci_dev_get(physfn);
+	pci_dev_put(virtfn);
+	return physfn;
+}
+
 static struct config_group *xe_config_make_device_group(struct config_group *group,
 							const char *name)
 {
 	unsigned int domain, bus, slot, function;
-	struct xe_config_device *dev;
+	struct xe_config_group_device *dev;
+	const struct xe_device_desc *match;
 	struct pci_dev *pdev;
+	char canonical[16];
+	int vfnumber = 0;
 	int ret;
 
-	ret = sscanf(name, "%04x:%02x:%02x.%x", &domain, &bus, &slot, &function);
+	ret = sscanf(name, "%x:%x:%x.%x", &domain, &bus, &slot, &function);
 	if (ret != 4)
 		return ERR_PTR(-EINVAL);
 
+	ret = scnprintf(canonical, sizeof(canonical), "%04x:%02x:%02x.%d", domain, bus,
+			PCI_SLOT(PCI_DEVFN(slot, function)),
+			PCI_FUNC(PCI_DEVFN(slot, function)));
+	if (ret != 12 || strcmp(name, canonical))
+		return ERR_PTR(-EINVAL);
+
 	pdev = pci_get_domain_bus_and_slot(domain, bus, PCI_DEVFN(slot, function));
+	if (!pdev && function)
+		pdev = pci_get_domain_bus_and_slot(domain, bus, PCI_DEVFN(slot, 0));
+	if (!pdev && slot)
+		pdev = pci_get_domain_bus_and_slot(domain, bus, PCI_DEVFN(0, 0));
 	if (!pdev)
 		return ERR_PTR(-ENODEV);
+
+	if (PCI_DEVFN(slot, function) != pdev->devfn) {
+		pdev = get_physfn_instead(pdev);
+		vfnumber = PCI_DEVFN(slot, function) - pdev->devfn;
+		if (!dev_is_pf(&pdev->dev) || vfnumber > pci_sriov_get_totalvfs(pdev)) {
+			pci_dev_put(pdev);
+			return ERR_PTR(-ENODEV);
+		}
+	}
+
+	match = xe_match_desc(pdev);
+	if (match && vfnumber && !match->has_sriov) {
+		pci_info(pdev, "xe driver does not support VFs on this device\n");
+		match = NULL;
+	} else if (!match) {
+		pci_info(pdev, "xe driver does not support configuration of this device\n");
+	}
+
 	pci_dev_put(pdev);
+
+	if (!match)
+		return ERR_PTR(-ENOENT);
 
 	dev = kzalloc(sizeof(*dev), GFP_KERNEL);
 	if (!dev)
 		return ERR_PTR(-ENOMEM);
 
-	/* Default values */
-	dev->engines_allowed = U64_MAX;
+	set_device_defaults(&dev->config);
 
 	config_group_init_type_name(&dev->group, name, &xe_config_device_type);
 
@@ -302,22 +371,18 @@ static struct configfs_subsystem xe_configfs = {
 	},
 };
 
-static struct xe_config_device *configfs_find_group(struct pci_dev *pdev)
+static struct xe_config_group_device *find_xe_config_group_device(struct pci_dev *pdev)
 {
 	struct config_item *item;
-	char name[64];
-
-	snprintf(name, sizeof(name), "%04x:%02x:%02x.%x", pci_domain_nr(pdev->bus),
-		 pdev->bus->number, PCI_SLOT(pdev->devfn), PCI_FUNC(pdev->devfn));
 
 	mutex_lock(&xe_configfs.su_mutex);
-	item = config_group_find_item(&xe_configfs.su_group, name);
+	item = config_group_find_item(&xe_configfs.su_group, pci_name(pdev));
 	mutex_unlock(&xe_configfs.su_mutex);
 
 	if (!item)
 		return NULL;
 
-	return to_xe_config_device(item);
+	return to_xe_config_group_device(item);
 }
 
 /**
@@ -331,14 +396,14 @@ static struct xe_config_device *configfs_find_group(struct pci_dev *pdev)
  */
 bool xe_configfs_get_survivability_mode(struct pci_dev *pdev)
 {
-	struct xe_config_device *dev = configfs_find_group(pdev);
+	struct xe_config_group_device *dev = find_xe_config_group_device(pdev);
 	bool mode;
 
 	if (!dev)
-		return false;
+		return device_defaults.survivability_mode;
 
-	mode = dev->survivability_mode;
-	config_item_put(&dev->group.cg_item);
+	mode = dev->config.survivability_mode;
+	config_group_put(&dev->group);
 
 	return mode;
 }
@@ -352,16 +417,16 @@ bool xe_configfs_get_survivability_mode(struct pci_dev *pdev)
  */
 void xe_configfs_clear_survivability_mode(struct pci_dev *pdev)
 {
-	struct xe_config_device *dev = configfs_find_group(pdev);
+	struct xe_config_group_device *dev = find_xe_config_group_device(pdev);
 
 	if (!dev)
 		return;
 
 	mutex_lock(&dev->lock);
-	dev->survivability_mode = 0;
+	dev->config.survivability_mode = 0;
 	mutex_unlock(&dev->lock);
 
-	config_item_put(&dev->group.cg_item);
+	config_group_put(&dev->group);
 }
 
 /**
@@ -375,29 +440,27 @@ void xe_configfs_clear_survivability_mode(struct pci_dev *pdev)
  */
 u64 xe_configfs_get_engines_allowed(struct pci_dev *pdev)
 {
-	struct xe_config_device *dev = configfs_find_group(pdev);
+	struct xe_config_group_device *dev = find_xe_config_group_device(pdev);
 	u64 engines_allowed;
 
 	if (!dev)
-		return U64_MAX;
+		return device_defaults.engines_allowed;
 
-	engines_allowed = dev->engines_allowed;
-	config_item_put(&dev->group.cg_item);
+	engines_allowed = dev->config.engines_allowed;
+	config_group_put(&dev->group);
 
 	return engines_allowed;
 }
 
 int __init xe_configfs_init(void)
 {
-	struct config_group *root = &xe_configfs.su_group;
 	int ret;
 
-	config_group_init(root);
+	config_group_init(&xe_configfs.su_group);
 	mutex_init(&xe_configfs.su_mutex);
 	ret = configfs_register_subsystem(&xe_configfs);
 	if (ret) {
-		pr_err("Error %d while registering %s subsystem\n",
-		       ret, root->cg_item.ci_namebuf);
+		mutex_destroy(&xe_configfs.su_mutex);
 		return ret;
 	}
 
@@ -407,5 +470,5 @@ int __init xe_configfs_init(void)
 void __exit xe_configfs_exit(void)
 {
 	configfs_unregister_subsystem(&xe_configfs);
+	mutex_destroy(&xe_configfs.su_mutex);
 }
-
