@@ -31,6 +31,7 @@
 #include "hsw_ips.h"
 #include "i915_drv.h"
 #include "i915_reg.h"
+#include "i915_utils.h"
 #include "intel_atomic.h"
 #include "intel_audio.h"
 #include "intel_bw.h"
@@ -903,8 +904,10 @@ static void bdw_set_cdclk(struct intel_display *display,
 	 * According to the spec, it should be enough to poll for this 1 us.
 	 * However, extensive testing shows that this can take longer.
 	 */
-	if (wait_for_us(intel_de_read(display, LCPLL_CTL) &
-			LCPLL_CD_SOURCE_FCLK_DONE, 100))
+	ret = intel_de_wait_custom(display, LCPLL_CTL,
+				   LCPLL_CD_SOURCE_FCLK_DONE, LCPLL_CD_SOURCE_FCLK_DONE,
+				   100, 0, NULL);
+	if (ret)
 		drm_err(display->drm, "Switching to FCLK failed\n");
 
 	intel_de_rmw(display, LCPLL_CTL,
@@ -913,8 +916,10 @@ static void bdw_set_cdclk(struct intel_display *display,
 	intel_de_rmw(display, LCPLL_CTL,
 		     LCPLL_CD_SOURCE_FCLK, 0);
 
-	if (wait_for_us((intel_de_read(display, LCPLL_CTL) &
-			 LCPLL_CD_SOURCE_FCLK_DONE) == 0, 1))
+	ret = intel_de_wait_custom(display, LCPLL_CTL,
+				   LCPLL_CD_SOURCE_FCLK_DONE, 0,
+				   1, 0, NULL);
+	if (ret)
 		drm_err(display->drm, "Switching back to LCPLL failed\n");
 
 	intel_pcode_write(display->drm, HSW_PCODE_DE_WRITE_FREQ_REQ,
@@ -3622,9 +3627,7 @@ DEFINE_SHOW_ATTRIBUTE(i915_cdclk_info);
 
 void intel_cdclk_debugfs_register(struct intel_display *display)
 {
-	struct drm_minor *minor = display->drm->primary;
-
-	debugfs_create_file("i915_cdclk_info", 0444, minor->debugfs_root,
+	debugfs_create_file("i915_cdclk_info", 0444, display->drm->debugfs_root,
 			    display, &i915_cdclk_info_fops);
 }
 

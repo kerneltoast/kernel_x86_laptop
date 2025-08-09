@@ -6,6 +6,7 @@
 #include <drm/drm_vblank.h>
 
 #include "i915_drv.h"
+#include "i915_utils.h"
 #include "intel_color.h"
 #include "intel_crtc.h"
 #include "intel_de.h"
@@ -724,9 +725,9 @@ int intel_vblank_evade(struct intel_vblank_evade_ctx *evade)
 			break;
 
 		if (!timeout) {
-			drm_err(display->drm,
-				"Potential atomic update failure on pipe %c\n",
-				pipe_name(crtc->pipe));
+			drm_dbg_kms(display->drm,
+				    "Potential atomic update failure on pipe %c\n",
+				    pipe_name(crtc->pipe));
 			break;
 		}
 

@@ -36,6 +36,7 @@
 #include "soc/intel_rom.h"
 
 #include "i915_drv.h"
+#include "i915_utils.h"
 #include "intel_display.h"
 #include "intel_display_core.h"
 #include "intel_display_rpm.h"
@@ -3743,8 +3744,6 @@ DEFINE_SHOW_ATTRIBUTE(intel_bios_vbt);
 
 void intel_bios_debugfs_register(struct intel_display *display)
 {
-	struct drm_minor *minor = display->drm->primary;
-
-	debugfs_create_file("i915_vbt", 0444, minor->debugfs_root,
+	debugfs_create_file("i915_vbt", 0444, display->drm->debugfs_root,
 			    display, &intel_bios_vbt_fops);
 }
