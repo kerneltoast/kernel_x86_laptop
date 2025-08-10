@@ -452,6 +452,9 @@ static struct dma_buf *isp4vid_vb2_get_dmabuf(struct vb2_buffer *vb,
 		dbuf = buf->dbuf;
 	} else {
 		dbuf = isp4vid_get_dmabuf(vb, buf_priv, flags);
+		if (!dbuf)
+			return NULL;
+
 		dev_dbg(buf->dev, "created new dbuf\n");
 	}
 	buf->is_expbuf = true;
