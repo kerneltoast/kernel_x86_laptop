@@ -490,6 +490,9 @@ static struct dma_buf *vb2_amdisp_get_dmabuf(struct vb2_buffer *vb,
 		dbuf = buf->dbuf;
 	} else {
 		dbuf = get_dmabuf(vb, buf_priv, flags);
+		if (!dbuf)
+			return NULL;
+
 		dev_dbg(buf->dev, "created new dbuf");
 	}
 	buf->is_expbuf = true;
