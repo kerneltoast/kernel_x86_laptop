@@ -594,8 +594,9 @@ static void vb2_amdisp_put(void *buf_priv)
 {
 	struct vb2_amdisp_buf *buf = buf_priv;
 	struct amdgpu_bo *bo = (struct amdgpu_bo *)buf->bo;
+	struct device *dev = buf->dev;
 
-	dev_dbg(buf->dev, "release isp user bo 0x%llx size %ld refcount %d is_expbuf %d",
+	dev_dbg(dev, "release isp user bo 0x%llx size %ld refcount %d is_expbuf %d",
 		buf->gpu_addr, buf->size,
 		refcount_read(&buf->refcount), buf->is_expbuf);
 
@@ -610,8 +611,7 @@ static void vb2_amdisp_put(void *buf_priv)
 		kfree(buf);
 		buf = NULL;
 	} else {
-		dev_warn(buf->dev, "ignore buffer free, refcount %u > 0",
-			 refcount_read(&buf->refcount));
+		dev_warn(dev, "ignore buffer free, refcount > 0");
 	}
 }
 
