@@ -485,16 +485,10 @@ static struct dma_buf *vb2_amdisp_get_dmabuf(struct vb2_buffer *vb,
 	struct vb2_amdisp_buf *buf = buf_priv;
 	struct dma_buf *dbuf;
 
-	if (buf->dbuf) {
-		dev_dbg(buf->dev, "dbuf already created, reuse implicit dbuf");
-		dbuf = buf->dbuf;
-	} else {
-		dbuf = get_dmabuf(vb, buf_priv, flags);
-		if (!dbuf)
-			return NULL;
+	dbuf = get_dmabuf(vb, buf_priv, flags);
+	if (!dbuf)
+		return NULL;
 
-		dev_dbg(buf->dev, "created new dbuf");
-	}
 	buf->is_expbuf = true;
 	refcount_inc(&buf->refcount);
 
