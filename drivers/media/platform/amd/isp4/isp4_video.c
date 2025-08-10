@@ -446,17 +446,10 @@ static struct dma_buf *isp4vid_vb2_get_dmabuf(struct vb2_buffer *vb,
 	struct isp4vid_vb2_buf *buf = buf_priv;
 	struct dma_buf *dbuf;
 
-	if (buf->dbuf) {
-		dev_dbg(buf->dev,
-			"dbuf already created, reuse implicit dbuf\n");
-		dbuf = buf->dbuf;
-	} else {
-		dbuf = isp4vid_get_dmabuf(vb, buf_priv, flags);
-		if (!dbuf)
-			return NULL;
+	dbuf = isp4vid_get_dmabuf(vb, buf_priv, flags);
+	if (!dbuf)
+		return NULL;
 
-		dev_dbg(buf->dev, "created new dbuf\n");
-	}
 	buf->is_expbuf = true;
 	refcount_inc(&buf->refcount);
 
