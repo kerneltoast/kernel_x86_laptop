@@ -1121,6 +1121,7 @@ static struct i2c_driver ov05_i2c_driver = {
 
 module_i2c_driver(ov05_i2c_driver);
 
+MODULE_SOFTDEP("pre: pinctrl-amdisp");
 MODULE_ALIAS("ov05");
 MODULE_DESCRIPTION("OmniVision OV05 sensor driver");
 MODULE_LICENSE("GPL and additional rights");
