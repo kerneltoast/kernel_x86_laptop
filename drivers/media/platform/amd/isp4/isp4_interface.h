@@ -44,9 +44,7 @@ enum isp4if_status {
 };
 
 struct isp4if_gpu_mem_info {
-	u32	mem_domain;
 	u64	mem_size;
-	u32	mem_align;
 	u64	gpu_mc_addr;
 	void	*sys_addr;
 	void	*mem_handle;
@@ -77,8 +75,6 @@ struct isp4if_cmd_element {
 };
 
 struct isp4_interface {
-	struct amdgpu_device *adev;
-
 	struct device *dev;
 	void __iomem *mmio;
 
@@ -159,6 +155,6 @@ int isp4if_start(struct isp4_interface *ispif);
 int isp4if_deinit(struct isp4_interface *ispif);
 
 int isp4if_init(struct isp4_interface *ispif, struct device *dev,
-		void *amdgpu_dev, void __iomem *isp_mmip);
+		void __iomem *isp_mmip);
 
 #endif

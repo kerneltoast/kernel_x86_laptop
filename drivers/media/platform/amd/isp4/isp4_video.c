@@ -8,7 +8,7 @@
 #include <media/v4l2-ioctl.h>
 #include <media/v4l2-mc.h>
 
-#include "amdgpu_object.h"
+#include <drm/amd/isp.h>
 #include "isp4_interface.h"
 #include "isp4_subdev.h"
 #include "isp4_video.h"
@@ -583,7 +583,6 @@ err_destroy_free:
 static void isp4vid_vb2_put(void *buf_priv)
 {
 	struct isp4vid_vb2_buf *buf = (struct isp4vid_vb2_buf *)buf_priv;
-	struct amdgpu_bo *bo = (struct amdgpu_bo *)buf->bo;
 
 	dev_dbg(buf->dev,
 		"release isp user bo 0x%llx size %ld refcount %d is_expbuf %d",
@@ -591,7 +590,7 @@ static void isp4vid_vb2_put(void *buf_priv)
 		buf->refcount.refs.counter, buf->is_expbuf);
 
 	if (refcount_dec_and_test(&buf->refcount)) {
-		amdgpu_bo_free_isp_user(bo);
+		isp_user_buffer_free(buf->bo);
 
 		// put implicit dmabuf here, detach_dmabuf will not be called
 		if (!buf->is_expbuf)
@@ -609,11 +608,10 @@ static void isp4vid_vb2_put(void *buf_priv)
 static void *isp4vid_vb2_alloc(struct vb2_buffer *vb, struct device *dev,
 			       unsigned long size)
 {
-	struct isp4vid_dev *isp_vdev = vb2_get_drv_priv(vb->vb2_queue);
 	struct isp4vid_vb2_buf *buf = NULL;
-	struct amdgpu_bo *bo;
 	u64 gpu_addr;
-	u32 ret;
+	void *bo;
+	int ret;
 
 	buf = kzalloc(sizeof(*buf), GFP_KERNEL | vb->vb2_queue->gfp_flags);
 	if (!buf)
@@ -640,14 +638,13 @@ static void *isp4vid_vb2_alloc(struct vb2_buffer *vb, struct device *dev,
 	}
 
 	// create isp user BO and obtain gpu_addr
-	ret = amdgpu_bo_create_isp_user(isp_vdev->amdgpu_dev, buf->dbuf,
-					AMDGPU_GEM_DOMAIN_GTT, &bo, &gpu_addr);
+	ret = isp_user_buffer_alloc(dev, buf->dbuf, &bo, &gpu_addr);
 	if (ret) {
 		dev_err(dev, "fail to create BO\n");
 		return ERR_PTR(-EINVAL);
 	}
 
-	buf->bo = (void *)bo;
+	buf->bo = bo;
 	buf->gpu_addr = gpu_addr;
 
 	refcount_set(&buf->refcount, 1);
@@ -1345,8 +1342,7 @@ static const struct vb2_ops isp4vid_qops = {
 
 int isp4vid_dev_init(struct isp4vid_dev *isp_vdev,
 		     struct v4l2_subdev *isp_sdev,
-		     const struct isp4vid_ops *ops,
-		     void *amdgpu_dev)
+		     const struct isp4vid_ops *ops)
 {
 	const char *vdev_name = isp4vid_video_dev_name;
 	struct v4l2_device *v4l2_dev;
@@ -1354,14 +1350,13 @@ int isp4vid_dev_init(struct isp4vid_dev *isp_vdev,
 	struct vb2_queue *q;
 	int ret;
 
-	if (!isp_vdev || !isp_sdev || !isp_sdev->v4l2_dev || !amdgpu_dev)
+	if (!isp_vdev || !isp_sdev || !isp_sdev->v4l2_dev)
 		return -EINVAL;
 
 	v4l2_dev = isp_sdev->v4l2_dev;
 	vdev = &isp_vdev->vdev;
 
 	isp_vdev->isp_sdev = isp_sdev;
-	isp_vdev->amdgpu_dev = amdgpu_dev;
 	isp_vdev->dev = v4l2_dev->dev;
 	isp_vdev->ops = ops;
 

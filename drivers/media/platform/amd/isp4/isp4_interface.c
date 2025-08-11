@@ -5,7 +5,7 @@
 
 #include <linux/mutex.h>
 
-#include "amdgpu_object.h"
+#include <drm/amd/isp.h>
 
 #include "isp4_debug.h"
 #include "isp4_fw_cmd_resp.h"
@@ -130,15 +130,10 @@ static struct isp4if_gpu_mem_info *isp4if_gpu_mem_alloc(struct isp4_interface
 							u32 mem_size)
 {
 	struct isp4if_gpu_mem_info *mem_info;
-	struct amdgpu_bo *bo = NULL;
-	struct amdgpu_device *adev;
-	struct device *dev;
-
-	void *cpu_ptr;
+	struct device *dev = ispif->dev;
+	void *bo, *cpu_ptr;
 	u64 gpu_addr;
-	u32 ret;
-
-	dev = ispif->dev;
+	int ret;
 
 	if (!mem_size)
 		return NULL;
@@ -147,20 +142,11 @@ static struct isp4if_gpu_mem_info *isp4if_gpu_mem_alloc(struct isp4_interface
 	if (!mem_info)
 		return NULL;
 
-	adev = (struct amdgpu_device *)ispif->adev;
 	mem_info->mem_size = mem_size;
-	mem_info->mem_align = ISP4IF_ISP_MC_ADDR_ALIGN;
-	mem_info->mem_domain = AMDGPU_GEM_DOMAIN_GTT;
 
-	ret = amdgpu_bo_create_kernel(adev,
-				      mem_info->mem_size,
-				      mem_info->mem_align,
-				      mem_info->mem_domain,
-				      &bo,
-				      &gpu_addr,
+	ret = isp_kernel_buffer_alloc(dev, mem_info->mem_size, &bo, &gpu_addr,
 				      &cpu_ptr);
-
-	if (!cpu_ptr || ret) {
+	if (ret) {
 		dev_err(dev, "gpuvm buffer alloc fail, size %u\n", mem_size);
 		kfree(mem_info);
 		return NULL;
@@ -168,7 +154,7 @@ static struct isp4if_gpu_mem_info *isp4if_gpu_mem_alloc(struct isp4_interface
 
 	mem_info->sys_addr = cpu_ptr;
 	mem_info->gpu_mc_addr = gpu_addr;
-	mem_info->mem_handle = (void *)bo;
+	mem_info->mem_handle = bo;
 
 	return mem_info;
 }
@@ -176,17 +162,8 @@ static struct isp4if_gpu_mem_info *isp4if_gpu_mem_alloc(struct isp4_interface
 static int isp4if_gpu_mem_free(struct isp4_interface *ispif,
 			       struct isp4if_gpu_mem_info *mem_info)
 {
-	struct device *dev = ispif->dev;
-	struct amdgpu_bo *bo;
-
-	if (!mem_info) {
-		dev_err(dev, "invalid mem_info\n");
-		return -EINVAL;
-	}
-
-	bo = (struct amdgpu_bo *)mem_info->mem_handle;
-
-	amdgpu_bo_free_kernel(&bo, &mem_info->gpu_mc_addr, &mem_info->sys_addr);
+	isp_kernel_buffer_free(&mem_info->mem_handle, &mem_info->gpu_mc_addr,
+			       &mem_info->sys_addr);
 
 	kfree(mem_info);
 
@@ -1043,10 +1020,9 @@ int isp4if_deinit(struct isp4_interface *ispif)
 }
 
 int isp4if_init(struct isp4_interface *ispif, struct device *dev,
-		void *amdgpu_dev, void __iomem *isp_mmip)
+		void __iomem *isp_mmip)
 {
 	ispif->dev = dev;
-	ispif->adev = amdgpu_dev;
 	ispif->mmio = isp_mmip;
 
 	ispif->cmd_rb_base_index = 0;

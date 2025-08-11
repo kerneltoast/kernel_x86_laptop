@@ -1222,8 +1222,7 @@ static const struct isp4vid_ops isp4sd_isp4vid_ops = {
 };
 
 int isp4sd_init(struct isp4_subdev *isp_subdev,
-		struct v4l2_device *v4l2_dev,
-		void *amdgpu_dev)
+		struct v4l2_device *v4l2_dev)
 {
 	struct isp4_interface *ispif = &isp_subdev->ispif;
 	struct isp4sd_sensor_info *sensor_info;
@@ -1231,7 +1230,6 @@ int isp4sd_init(struct isp4_subdev *isp_subdev,
 	int ret;
 
 	isp_subdev->dev = dev;
-	isp_subdev->amdgpu_dev = amdgpu_dev;
 	v4l2_subdev_init(&isp_subdev->sdev, &isp4sd_subdev_ops);
 	isp_subdev->sdev.owner = THIS_MODULE;
 	isp_subdev->sdev.dev = dev;
@@ -1265,7 +1263,7 @@ int isp4sd_init(struct isp4_subdev *isp_subdev,
 
 	sensor_info = &isp_subdev->sensor_info;
 
-	isp4if_init(ispif, dev, amdgpu_dev, isp_subdev->mmio);
+	isp4if_init(ispif, dev, isp_subdev->mmio);
 
 	mutex_init(&isp_subdev->ops_mutex);
 	sensor_info->start_stream_cmd_sent = false;
@@ -1285,7 +1283,7 @@ int isp4sd_init(struct isp4_subdev *isp_subdev,
 	ispif->status = ISP4IF_STATUS_PWR_OFF;
 
 	ret = isp4vid_dev_init(&isp_subdev->isp_vdev, &isp_subdev->sdev,
-			       &isp4sd_isp4vid_ops, amdgpu_dev);
+			       &isp4sd_isp4vid_ops);
 	if (ret)
 		goto err_media_clean_up;
 	return ret;

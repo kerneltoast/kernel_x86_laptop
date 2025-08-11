@@ -123,7 +123,6 @@ struct isp4_subdev {
 	/* gpio descriptor */
 	struct gpio_desc *enable_gpio;
 	struct device *dev;
-	void *amdgpu_dev;
 	void __iomem *mmio;
 	struct isp4_subdev_thread_param
 		isp_resp_para[ISP4SD_MAX_FW_RESP_STREAM_NUM];
@@ -140,8 +139,7 @@ struct isp4_subdev {
 };
 
 int isp4sd_init(struct isp4_subdev *isp_subdev,
-		struct v4l2_device *v4l2_dev,
-		void *amdgpu_dev);
+		struct v4l2_device *v4l2_dev);
 void isp4sd_deinit(struct isp4_subdev *isp_subdev);
 
 #endif

@@ -8,8 +8,6 @@
 #include <media/v4l2-fwnode.h>
 #include <media/v4l2-ioctl.h>
 
-#include "amdgpu_object.h"
-
 #include "isp4.h"
 #include "isp4_debug.h"
 #include "isp4_hw.h"
@@ -294,8 +292,6 @@ static int isp4_capture_probe(struct platform_device *pdev)
 					     irq);
 	}
 
-	isp_dev->pltf_data = pdev->dev.platform_data;
-
 	dev_dbg(dev, "isp irq registration successful\n");
 
 	/* Link the media device within the v4l2_device */
@@ -319,8 +315,7 @@ static int isp4_capture_probe(struct platform_device *pdev)
 
 	dev_dbg(dev, "AMD ISP v4l2 device registered\n");
 
-	ret = isp4sd_init(&isp_dev->isp_sdev, &isp_dev->v4l2_dev,
-			  isp_dev->pltf_data->adev);
+	ret = isp4sd_init(&isp_dev->isp_sdev, &isp_dev->v4l2_dev);
 	if (ret) {
 		dev_err(dev, "fail init isp4 sub dev %d\n", ret);
 		goto err_unreg_v4l2;

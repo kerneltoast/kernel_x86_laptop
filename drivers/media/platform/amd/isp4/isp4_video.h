@@ -70,7 +70,6 @@ struct isp4vid_dev {
 
 	struct media_pipeline pipe;
 	struct device *dev;
-	void *amdgpu_dev;
 	struct v4l2_subdev *isp_sdev;
 	struct v4l2_fract timeperframe;
 
@@ -80,8 +79,7 @@ struct isp4vid_dev {
 
 int isp4vid_dev_init(struct isp4vid_dev *isp_vdev,
 		     struct v4l2_subdev *isp_sdev,
-		     const struct isp4vid_ops *ops,
-		     void *amdgpu_dev);
+		     const struct isp4vid_ops *ops);
 
 void isp4vid_dev_deinit(struct isp4vid_dev *isp_vdev);
 
