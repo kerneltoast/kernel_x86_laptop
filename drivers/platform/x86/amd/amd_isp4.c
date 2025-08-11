@@ -11,7 +11,6 @@
 #include <linux/mutex.h>
 #include <linux/platform_device.h>
 #include <linux/property.h>
-#include <linux/soc/amd/isp4_misc.h>
 #include <linux/string.h>
 #include <linux/types.h>
 #include <linux/units.h>
@@ -152,7 +151,7 @@ MODULE_DEVICE_TABLE(acpi, amdisp_sensor_ids);
 
 static inline bool is_isp_i2c_adapter(struct i2c_adapter *adap)
 {
-	return !strcmp(adap->name, AMDISP_I2C_ADAP_NAME);
+	return !strcmp(adap->owner->name, "i2c_designware_amdisp");
 }
 
 static void instantiate_isp_i2c_client(struct amdisp_platform *isp4_platform,
