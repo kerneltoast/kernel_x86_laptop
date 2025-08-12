@@ -298,8 +298,6 @@ static int vb2_amdisp_map_dmabuf(void *mem_priv)
 	int ret;
 	struct vb2_amdisp_buf *mmap_buf = NULL;
 
-	memset(&map, 0x0, sizeof(map));
-
 	ret = dma_buf_vmap_unlocked(buf->dbuf, &map);
 	if (ret) {
 		dev_err(buf->dev, "vmap_unlocked failed");
