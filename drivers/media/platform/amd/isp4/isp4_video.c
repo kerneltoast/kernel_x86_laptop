@@ -226,7 +226,7 @@ static void *isp4vid_vb2_attach_dmabuf(struct vb2_buffer *vb,
 	if (!buf)
 		return ERR_PTR(-ENOMEM);
 
-	struct isp4vid_vb2_buf *dbg_buf = (struct isp4vid_vb2_buf *)dbuf->priv;
+	struct isp4vid_vb2_buf *dbg_buf = dbuf->priv;
 
 	buf->dev = dev;
 	buf->dbuf = dbuf;
@@ -267,7 +267,7 @@ static int isp4vid_vb2_map_dmabuf(void *mem_priv)
 	}
 	buf->vaddr = map.vaddr;
 
-	mmap_buf = (struct isp4vid_vb2_buf *)buf->dbuf->priv;
+	mmap_buf = buf->dbuf->priv;
 	buf->gpu_addr = mmap_buf->gpu_addr;
 
 	dev_dbg(buf->dev, "map dmabuf of isp user bo 0x%llx size %ld",
@@ -551,7 +551,7 @@ err_destroy_free:
 
 static void isp4vid_vb2_put(void *buf_priv)
 {
-	struct isp4vid_vb2_buf *buf = (struct isp4vid_vb2_buf *)buf_priv;
+	struct isp4vid_vb2_buf *buf = buf_priv;
 
 	dev_dbg(buf->dev,
 		"release isp user bo 0x%llx size %ld refcount %d is_expbuf %d",

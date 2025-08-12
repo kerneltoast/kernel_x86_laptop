@@ -186,8 +186,8 @@ void isp4dbg_show_bufmeta_info(struct device *dev, char *pre,
 	if (!pre)
 		pre = "";
 
-	p = (struct isp4fw_buffer_meta_info *)in;
-	orig = (struct isp4if_img_buf_info *)orig_buf;
+	p = in;
+	orig = orig_buf;
 
 	dev_dbg(dev, "%s(%s) en:%d,stat:%s(%u),src:%s\n", pre,
 		isp4dbg_get_img_fmt_str(p->image_prop.image_format),

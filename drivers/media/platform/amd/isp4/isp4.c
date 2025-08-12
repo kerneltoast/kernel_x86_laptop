@@ -28,7 +28,7 @@ static const u32 isp4_ringbuf_interrupt_num[] = {
 };
 
 #define to_isp4_device(dev) \
-	((struct isp4_device *)container_of(dev, struct isp4_device, v4l2_dev))
+	container_of(dev, struct isp4_device, v4l2_dev)
 
 static int isp4_create_links(struct isp4_device *isp4_dev,
 			     struct v4l2_subdev *sensor_sdev)
