@@ -259,8 +259,8 @@ void isp_dbg_show_bufmeta_info(char *pre, u32 cid, void *in, void *orig_buf)
 		return;
 	if (!pre)
 		pre = "";
-	p = (struct buffer_meta_info_t *)in;
-	orig = (struct sys_img_buf_info *)orig_buf;
+	p = in;
+	orig = orig_buf;
 
 	pr_debug("%s(%s)%u en:%d,stat:%s(%u),src:%s\n", pre,
 		 isp_dbg_get_img_fmt_str(&p->image_prop.image_format), cid,

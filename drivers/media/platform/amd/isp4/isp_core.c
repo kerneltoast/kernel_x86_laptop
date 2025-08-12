@@ -266,7 +266,7 @@ static void *vb2_amdisp_attach_dmabuf(struct vb2_buffer *vb,
 	if (!buf)
 		return ERR_PTR(-ENOMEM);
 
-	struct vb2_amdisp_buf *dbg_buf = (struct vb2_amdisp_buf *)dbuf->priv;
+	struct vb2_amdisp_buf *dbg_buf = dbuf->priv;
 
 	buf->dev = dev;
 	buf->dbuf = dbuf;
@@ -307,7 +307,7 @@ static int vb2_amdisp_map_dmabuf(void *mem_priv)
 	}
 	buf->vaddr = map.vaddr;
 
-	mmap_buf = (struct vb2_amdisp_buf *)buf->dbuf->priv;
+	mmap_buf = buf->dbuf->priv;
 	buf->gpu_addr = mmap_buf->gpu_addr;
 
 	dev_dbg(buf->dev, "map dmabuf of isp user bo 0x%llx size %ld",
@@ -590,7 +590,7 @@ fail_pfnvec_create:
 
 static void vb2_amdisp_put(void *buf_priv)
 {
-	struct vb2_amdisp_buf *buf = (struct vb2_amdisp_buf *)buf_priv;
+	struct vb2_amdisp_buf *buf = buf_priv;
 	struct amdgpu_bo *bo = (struct amdgpu_bo *)buf->bo;
 
 	dev_dbg(buf->dev, "release isp user bo 0x%llx size %ld refcount %d is_expbuf %d",
@@ -1528,7 +1528,7 @@ enum stream_id get_vdev_stream_id(struct isp4_video_dev *vdev)
 }
 
 #define to_amd_cam(dev) \
-	((struct amd_cam *)container_of(dev, struct amd_cam, v4l2_dev))
+	container_of(dev, struct amd_cam, v4l2_dev)
 
 static int isp4_create_links(struct amd_cam *ctx, struct v4l2_subdev *sdev)
 {
