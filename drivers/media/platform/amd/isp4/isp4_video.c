@@ -27,8 +27,6 @@
 struct isp4vid_vb2_buf {
 	struct device			*dev;
 	void				*vaddr;
-	struct frame_vector		*vec;
-	enum dma_data_direction		dma_dir;
 	unsigned long			size;
 	refcount_t			refcount;
 	struct dma_buf			*dbuf;
@@ -230,7 +228,6 @@ static void *isp4vid_vb2_attach_dmabuf(struct vb2_buffer *vb,
 
 	buf->dev = dev;
 	buf->dbuf = dbuf;
-	buf->dma_dir = vb->vb2_queue->dma_dir;
 	buf->size = size;
 
 	dev_dbg(dev, "attach dmabuf of isp user bo 0x%llx size %ld",
@@ -456,89 +453,6 @@ static struct dma_buf *isp4vid_vb2_get_dmabuf(struct vb2_buffer *vb,
 }
 #endif /* CONFIG_HAS_DMA */
 
-static void isp4vid_vb2_put_userptr(void *buf_priv)
-{
-	struct isp4vid_vb2_buf *buf = buf_priv;
-
-	if (!buf->vec->is_pfns) {
-		unsigned long vaddr = (unsigned long)buf->vaddr & PAGE_MASK;
-		unsigned int n_pages;
-
-		n_pages = frame_vector_count(buf->vec);
-		if (vaddr)
-			vm_unmap_ram((void *)vaddr, n_pages);
-		if (buf->dma_dir == DMA_FROM_DEVICE ||
-		    buf->dma_dir == DMA_BIDIRECTIONAL) {
-			struct page **pages;
-
-			pages = frame_vector_pages(buf->vec);
-			if (!WARN_ON_ONCE(IS_ERR(pages))) {
-				unsigned int i;
-
-				for (i = 0; i < n_pages; i++)
-					set_page_dirty_lock(pages[i]);
-			}
-		}
-	} else {
-		iounmap((__force void __iomem *)buf->vaddr);
-	}
-	vb2_destroy_framevec(buf->vec);
-	kfree(buf);
-}
-
-static void *isp4vid_vb2_get_userptr(struct vb2_buffer *vb, struct device *dev,
-				     unsigned long vaddr, unsigned long size)
-{
-	struct isp4vid_vb2_buf *buf;
-	struct frame_vector *vec;
-	int n_pages, offset, i;
-	int ret = -ENOMEM;
-
-	buf = kzalloc(sizeof(*buf), GFP_KERNEL);
-	if (!buf)
-		return ERR_PTR(-ENOMEM);
-
-	buf->dev = dev;
-	buf->dma_dir = vb->vb2_queue->dma_dir;
-	offset = vaddr & ~PAGE_MASK;
-	buf->size = size;
-	vec = vb2_create_framevec(vaddr, size,
-				  buf->dma_dir == DMA_FROM_DEVICE ||
-				  buf->dma_dir == DMA_BIDIRECTIONAL);
-	if (IS_ERR(vec)) {
-		kfree(buf);
-		return vec;
-	}
-	buf->vec = vec;
-	n_pages = frame_vector_count(vec);
-	if (frame_vector_to_pages(vec) < 0) {
-		unsigned long *nums = frame_vector_pfns(vec);
-
-		/*
-		 * We cannot get page pointers for these pfns. Check memory is
-		 * physically contiguous and use direct mapping.
-		 */
-		for (i = 1; i < n_pages; i++)
-			if (nums[i - 1] + 1 != nums[i])
-				goto err_destroy_free;
-		buf->vaddr = (__force void *)
-			     ioremap(__pfn_to_phys(nums[0]), size + offset);
-	} else {
-		buf->vaddr = vm_map_ram(frame_vector_pages(vec), n_pages, -1);
-	}
-
-	if (!buf->vaddr)
-		goto err_destroy_free;
-
-	buf->vaddr = ((char *)buf->vaddr) + offset;
-	return buf;
-
-err_destroy_free:
-	vb2_destroy_framevec(vec);
-	kfree(buf);
-	return ERR_PTR(ret);
-}
-
 static void isp4vid_vb2_put(void *buf_priv)
 {
 	struct isp4vid_vb2_buf *buf = buf_priv;
@@ -582,7 +496,6 @@ static void *isp4vid_vb2_alloc(struct vb2_buffer *vb, struct device *dev,
 		return ERR_PTR(-ENOMEM);
 	}
 
-	buf->dma_dir = vb->vb2_queue->dma_dir;
 	buf->handler.refcount = &buf->refcount;
 	buf->handler.put = isp4vid_vb2_put;
 	buf->handler.arg = buf;
@@ -615,8 +528,6 @@ static void *isp4vid_vb2_alloc(struct vb2_buffer *vb, struct device *dev,
 const struct vb2_mem_ops isp4vid_vb2_memops = {
 	.alloc		= isp4vid_vb2_alloc,
 	.put		= isp4vid_vb2_put,
-	.get_userptr	= isp4vid_vb2_get_userptr,
-	.put_userptr	= isp4vid_vb2_put_userptr,
 #ifdef CONFIG_HAS_DMA
 	.get_dmabuf	= isp4vid_vb2_get_dmabuf,
 #endif
