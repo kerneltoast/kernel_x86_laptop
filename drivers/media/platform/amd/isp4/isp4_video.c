@@ -396,7 +396,7 @@ static void isp4vid_vb2_dmabuf_ops_release(struct dma_buf *dbuf)
 	if (dbuf != buf->dbuf)
 		isp4vid_vb2_put(buf);
 	else
-		dev_dbg(buf->dev, "ignore buf release for implicit case");
+		kfree(buf);
 }
 
 static int isp4vid_vb2_dmabuf_ops_mmap(struct dma_buf *dbuf,
@@ -554,9 +554,15 @@ static void isp4vid_vb2_put(void *buf_priv)
 
 	if (refcount_dec_and_test(&buf->refcount)) {
 		isp_user_buffer_free(buf->bo);
-		dma_buf_put(buf->dbuf);
 		vfree(buf->vaddr);
-		kfree(buf);
+		/*
+		 * Putting the implicit dmabuf frees `buf`. Freeing `buf` must
+		 * be done from the dmabuf release callback since dma_buf_put()
+		 * isn't always synchronous; it's just an fput(), which may be
+		 * deferred. Since the dmabuf release callback needs to access
+		 * `buf`, this means `buf` cannot be freed until then.
+		 */
+		dma_buf_put(buf->dbuf);
 	} else {
 		dev_warn(dev, "ignore buffer free, refcount > 0");
 	}
