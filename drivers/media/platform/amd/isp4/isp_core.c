@@ -1331,7 +1331,7 @@ static int isp4_qops_start_streaming(struct vb2_queue *vq, unsigned int count)
 					 PHY_BIT_RATE, PHY_NUM_OF_LANES);
 		if (ret) {
 			dev_err(dev, "failed to start the Phy:%d", ret);
-			return ret;
+			goto release_buffers;
 		}
 
 		if (ctx->cam->sensor) {
@@ -1339,7 +1339,7 @@ static int isp4_qops_start_streaming(struct vb2_queue *vq, unsigned int count)
 			ret = v4l2_subdev_call(ctx->cam->sensor, video, s_stream, 1);
 			if (ret) {
 				dev_err(dev, "camera sensor start streaming failed:%d", ret);
-				return ret;
+				goto release_buffers;
 			}
 		}
 	}
@@ -1413,18 +1413,22 @@ static int isp4_qops_start_streaming(struct vb2_queue *vq, unsigned int count)
 	default:
 		dev_err(dev, "%s|unsupported fmt=0x%x",
 			ctx->vdev.name, ctx->format.pixelformat);
-		return -EINVAL;
+		ret = -EINVAL;
+		goto release_buffers;
 	}
 
 	/* Start the media pipeline */
 	ret = video_device_pipeline_start(&ctx->vdev, &ctx->pipe);
 	if (ret) {
 		dev_err(dev, "video_device_pipeline_start failed:%d", ret);
-		isp4_capture_return_all_buffers(ctx, VB2_BUF_STATE_QUEUED);
-		return ret;
+		goto release_buffers;
 	}
 
 	return 0;
+
+release_buffers:
+	isp4_capture_return_all_buffers(ctx, VB2_BUF_STATE_QUEUED);
+	return ret;
 }
 
 static void isp4_qops_stop_streaming(struct vb2_queue *vq)
