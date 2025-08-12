@@ -421,13 +421,13 @@ static struct dma_buf *isp4vid_get_dmabuf(struct isp4vid_vb2_buf *buf,
 	DEFINE_DMA_BUF_EXPORT_INFO(exp_info);
 	struct dma_buf *dbuf;
 
+	if (WARN_ON(!buf->vaddr))
+		return NULL;
+
 	exp_info.ops = &vb2_isp4vid_dmabuf_ops;
 	exp_info.size = buf->size;
 	exp_info.flags = flags;
 	exp_info.priv = buf;
-
-	if (WARN_ON(!buf->vaddr))
-		return NULL;
 
 	dbuf = dma_buf_export(&exp_info);
 	if (IS_ERR(dbuf))
