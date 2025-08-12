@@ -608,51 +608,40 @@ static void vb2_amdisp_put(void *buf_priv)
 static void *vb2_amdisp_alloc(struct vb2_buffer *vb, struct device *dev,
 			      unsigned long size)
 {
-	struct vb2_amdisp_buf *buf = NULL;
-	struct amdgpu_bo *bo;
-	u64 gpu_addr;
-	u32 ret;
 	struct amd_cam *cam = dev_get_drvdata(dev);
+	struct vb2_amdisp_buf *buf;
+	int ret;
 
 	buf = kzalloc(sizeof(*buf), GFP_KERNEL | vb->vb2_queue->gfp_flags);
 	if (!buf)
 		return ERR_PTR(-ENOMEM);
 
-	if (!cam) {
-		dev_err(dev, "Invalid cam handle");
-		return ERR_PTR(-EINVAL);
-	}
-
 	buf->dev = dev;
 	buf->size = size;
 	buf->vaddr = vmalloc_user(buf->size);
-	if (!buf->vaddr) {
-		kfree(buf);
-		return ERR_PTR(-ENOMEM);
-	}
+	if (!buf->vaddr)
+		goto free_buf;
 
 	buf->dma_dir = vb->vb2_queue->dma_dir;
 	buf->handler.refcount = &buf->refcount;
 	buf->handler.put = vb2_amdisp_put;
 	buf->handler.arg = buf;
 
-	// get implicit dmabuf
+	/* get implicit dmabuf */
 	buf->dbuf = get_dmabuf(vb, buf, 0);
 	if (!buf->dbuf) {
-		dev_err(dev, "Failed to get dmabuf");
-		return ERR_PTR(-EINVAL);
+		dev_err(dev, "failed to get implicit dmabuf");
+		goto free_user_vmem;
 	}
 
-	// create isp user BO and obtain gpu_addr
+	/* create isp user BO and obtain gpu_addr */
 	ret = amdgpu_bo_create_isp_user(cam->pltf_data->adev, buf->dbuf,
-					AMDGPU_GEM_DOMAIN_GTT, &bo, &gpu_addr);
+					AMDGPU_GEM_DOMAIN_GTT, (void *)&buf->bo,
+					&buf->gpu_addr);
 	if (ret) {
-		dev_err(dev, "Failed to create BO");
-		return ERR_PTR(-EINVAL);
+		dev_err(dev, "failed to create isp user BO");
+		goto put_dmabuf;
 	}
-
-	buf->bo = (void *)bo;
-	buf->gpu_addr = gpu_addr;
 
 	refcount_set(&buf->refcount, 1);
 
@@ -660,6 +649,15 @@ static void *vb2_amdisp_alloc(struct vb2_buffer *vb, struct device *dev,
 		buf->gpu_addr, buf->size, refcount_read(&buf->refcount));
 
 	return buf;
+
+put_dmabuf:
+	dma_buf_put(buf->dbuf);
+free_user_vmem:
+	vfree(buf->vaddr);
+free_buf:
+	ret = buf->vaddr ? -EINVAL : -ENOMEM;
+	kfree(buf);
+	return ERR_PTR(ret);
 }
 
 const struct vb2_mem_ops vb2_amdisp_memops = {
