@@ -258,8 +258,6 @@ static int isp4vid_vb2_map_dmabuf(void *mem_priv)
 	struct iosys_map map;
 	int ret;
 
-	memset(&map, 0x0, sizeof(map));
-
 	ret = dma_buf_vmap_unlocked(buf->dbuf, &map);
 	if (ret) {
 		dev_err(buf->dev, "vmap_unlocked fail");
