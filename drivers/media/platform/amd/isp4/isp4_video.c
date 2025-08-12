@@ -545,9 +545,8 @@ err_destroy_free:
 static void isp4vid_vb2_put(void *buf_priv)
 {
 	struct isp4vid_vb2_buf *buf = buf_priv;
-	struct device *dev = buf->dev;
 
-	dev_dbg(dev,
+	dev_dbg(buf->dev,
 		"release isp user bo 0x%llx size %ld refcount %d",
 		buf->gpu_addr, buf->size,
 		refcount_read(&buf->refcount));
@@ -563,8 +562,6 @@ static void isp4vid_vb2_put(void *buf_priv)
 		 * `buf`, this means `buf` cannot be freed until then.
 		 */
 		dma_buf_put(buf->dbuf);
-	} else {
-		dev_warn(dev, "ignore buffer free, refcount > 0");
 	}
 }
 
