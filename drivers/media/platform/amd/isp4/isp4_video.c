@@ -454,8 +454,7 @@ static struct dma_buf *isp4vid_vb2_get_dmabuf(struct vb2_buffer *vb,
 
 	return dbuf;
 }
-
-#endif
+#endif /* CONFIG_HAS_DMA */
 
 static void isp4vid_vb2_put_userptr(void *buf_priv)
 {
