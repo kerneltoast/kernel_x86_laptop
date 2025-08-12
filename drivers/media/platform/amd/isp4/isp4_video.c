@@ -525,7 +525,7 @@ static void *isp4vid_vb2_alloc(struct vb2_buffer *vb, struct device *dev,
 	return buf;
 }
 
-const struct vb2_mem_ops isp4vid_vb2_memops = {
+static const struct vb2_mem_ops isp4vid_vb2_memops = {
 	.alloc		= isp4vid_vb2_alloc,
 	.put		= isp4vid_vb2_put,
 #ifdef CONFIG_HAS_DMA
