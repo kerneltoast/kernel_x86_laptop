@@ -479,7 +479,7 @@ static void isp4vid_vb2_put(void *buf_priv)
 static void *isp4vid_vb2_alloc(struct vb2_buffer *vb, struct device *dev,
 			       unsigned long size)
 {
-	struct isp4vid_vb2_buf *buf = NULL;
+	struct isp4vid_vb2_buf *buf;
 	u64 gpu_addr;
 	void *bo;
 	int ret;
@@ -491,27 +491,25 @@ static void *isp4vid_vb2_alloc(struct vb2_buffer *vb, struct device *dev,
 	buf->dev = dev;
 	buf->size = size;
 	buf->vaddr = vmalloc_user(buf->size);
-	if (!buf->vaddr) {
-		kfree(buf);
-		return ERR_PTR(-ENOMEM);
-	}
+	if (!buf->vaddr)
+		goto free_buf;
 
 	buf->handler.refcount = &buf->refcount;
 	buf->handler.put = isp4vid_vb2_put;
 	buf->handler.arg = buf;
 
-	// get implicit dmabuf
+	/* get implicit dmabuf */
 	buf->dbuf = isp4vid_get_dmabuf(buf, 0);
 	if (!buf->dbuf) {
-		dev_err(dev, "fail to get dmabuf\n");
-		return ERR_PTR(-EINVAL);
+		dev_err(dev, "failed to get implicit dmabuf");
+		goto free_user_vmem;
 	}
 
-	// create isp user BO and obtain gpu_addr
+	/* create isp user BO and obtain gpu_addr */
 	ret = isp_user_buffer_alloc(dev, buf->dbuf, &bo, &gpu_addr);
 	if (ret) {
-		dev_err(dev, "fail to create BO\n");
-		return ERR_PTR(-EINVAL);
+		dev_err(dev, "failed to create isp user BO");
+		goto put_dmabuf;
 	}
 
 	buf->bo = bo;
@@ -523,6 +521,15 @@ static void *isp4vid_vb2_alloc(struct vb2_buffer *vb, struct device *dev,
 		buf->gpu_addr, buf->size, refcount_read(&buf->refcount));
 
 	return buf;
+
+put_dmabuf:
+	dma_buf_put(buf->dbuf);
+free_user_vmem:
+	vfree(buf->vaddr);
+free_buf:
+	ret = buf->vaddr ? -EINVAL : -ENOMEM;
+	kfree(buf);
+	return ERR_PTR(ret);
 }
 
 static const struct vb2_mem_ops isp4vid_vb2_memops = {
