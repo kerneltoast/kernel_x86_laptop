@@ -1037,7 +1037,7 @@ static int isp4vid_qops_start_streaming(struct vb2_queue *vq,
 	ret = v4l2_pipeline_pm_get(&isp_vdev->vdev.entity);
 	if (ret) {
 		dev_err(isp_vdev->dev, "power up isp fail %d\n", ret);
-		return ret;
+		goto release_buffers;
 	}
 
 	entity = &isp_vdev->vdev.entity;
@@ -1064,7 +1064,7 @@ static int isp4vid_qops_start_streaming(struct vb2_queue *vq,
 		if (ret < 0 && ret != -ENOIOCTLCMD) {
 			dev_dbg(isp_vdev->dev, "fail start streaming: %s %d\n",
 				subdev->name, ret);
-			return ret;
+			goto release_buffers;
 		}
 	}
 
@@ -1073,7 +1073,7 @@ static int isp4vid_qops_start_streaming(struct vb2_queue *vq,
 		if (ret < 0 && ret != -ENOIOCTLCMD) {
 			dev_dbg(isp_vdev->dev, "fail start stream: %s %d\n",
 				isp_subdev->name, ret);
-			return ret;
+			goto release_buffers;
 		}
 	}
 
@@ -1086,13 +1086,15 @@ static int isp4vid_qops_start_streaming(struct vb2_queue *vq,
 	if (ret) {
 		dev_err(isp_vdev->dev, "video_device_pipeline_start fail:%d",
 			ret);
-		isp4vid_capture_return_all_buffers(isp_vdev,
-						   VB2_BUF_STATE_QUEUED);
-		return ret;
+		goto release_buffers;
 	}
 	isp_vdev->stream_started = true;
 
 	return 0;
+
+release_buffers:
+	isp4vid_capture_return_all_buffers(isp_vdev, VB2_BUF_STATE_QUEUED);
+	return ret;
 }
 
 static void isp4vid_qops_stop_streaming(struct vb2_queue *vq)
