@@ -415,11 +415,9 @@ static const struct dma_buf_ops vb2_isp4vid_dmabuf_ops = {
 	.release = isp4vid_vb2_dmabuf_ops_release,
 };
 
-static struct dma_buf *isp4vid_get_dmabuf(struct vb2_buffer *vb,
-					  void *buf_priv,
+static struct dma_buf *isp4vid_get_dmabuf(struct isp4vid_vb2_buf *buf,
 					  unsigned long flags)
 {
-	struct isp4vid_vb2_buf *buf = buf_priv;
 	DEFINE_DMA_BUF_EXPORT_INFO(exp_info);
 	struct dma_buf *dbuf;
 
@@ -445,7 +443,7 @@ static struct dma_buf *isp4vid_vb2_get_dmabuf(struct vb2_buffer *vb,
 	struct isp4vid_vb2_buf *buf = buf_priv;
 	struct dma_buf *dbuf;
 
-	dbuf = isp4vid_get_dmabuf(vb, buf_priv, flags);
+	dbuf = isp4vid_get_dmabuf(buf, flags);
 	if (!dbuf)
 		return NULL;
 
@@ -591,7 +589,7 @@ static void *isp4vid_vb2_alloc(struct vb2_buffer *vb, struct device *dev,
 	buf->handler.arg = buf;
 
 	// get implicit dmabuf
-	buf->dbuf = isp4vid_get_dmabuf(vb, buf, 0);
+	buf->dbuf = isp4vid_get_dmabuf(buf, 0);
 	if (!buf->dbuf) {
 		dev_err(dev, "fail to get dmabuf\n");
 		return ERR_PTR(-EINVAL);
