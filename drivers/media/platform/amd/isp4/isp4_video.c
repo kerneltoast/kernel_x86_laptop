@@ -392,7 +392,7 @@ static void isp4vid_vb2_dmabuf_ops_release(struct dma_buf *dbuf)
 {
 	struct isp4vid_vb2_buf *buf = dbuf->priv;
 
-	/* drop reference obtained in vb2_isp4vid_get_dmabuf */
+	/* drop reference obtained in isp4vid_vb2_get_dmabuf */
 	if (dbuf != buf->dbuf)
 		isp4vid_vb2_put(buf);
 	else
