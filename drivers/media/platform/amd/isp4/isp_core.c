@@ -439,8 +439,8 @@ static void vb2_amdisp_dmabuf_ops_release(struct dma_buf *dbuf)
 	struct vb2_amdisp_buf *buf = dbuf->priv;
 
 	/* drop reference obtained in vb2_amdisp_get_dmabuf */
-	if (buf->is_expbuf)
-		vb2_amdisp_put(dbuf->priv);
+	if (dbuf != buf->dbuf)
+		vb2_amdisp_put(buf);
 	else
 		dev_dbg(buf->dev, "ignore buf release for implicit case");
 }
@@ -489,7 +489,6 @@ static struct dma_buf *vb2_amdisp_get_dmabuf(struct vb2_buffer *vb,
 	if (!dbuf)
 		return NULL;
 
-	buf->is_expbuf = true;
 	refcount_inc(&buf->refcount);
 
 	dev_dbg(buf->dev, "buf exported, refcount %d", refcount_read(&buf->refcount));
@@ -587,23 +586,17 @@ fail_pfnvec_create:
 static void vb2_amdisp_put(void *buf_priv)
 {
 	struct vb2_amdisp_buf *buf = buf_priv;
-	struct amdgpu_bo *bo = (struct amdgpu_bo *)buf->bo;
 	struct device *dev = buf->dev;
 
-	dev_dbg(dev, "release isp user bo 0x%llx size %ld refcount %d is_expbuf %d",
+	dev_dbg(dev, "release isp user bo 0x%llx size %ld refcount %d",
 		buf->gpu_addr, buf->size,
-		refcount_read(&buf->refcount), buf->is_expbuf);
+		refcount_read(&buf->refcount));
 
 	if (refcount_dec_and_test(&buf->refcount)) {
-		amdgpu_bo_free_isp_user(bo);
-
-		// put implicit dmabuf here, detach_dmabuf will not be called
-		if (!buf->is_expbuf)
-			dma_buf_put(buf->dbuf);
-
+		amdgpu_bo_free_isp_user(buf->bo);
+		dma_buf_put(buf->dbuf);
 		vfree(buf->vaddr);
 		kfree(buf);
-		buf = NULL;
 	} else {
 		dev_warn(dev, "ignore buffer free, refcount > 0");
 	}
@@ -1309,24 +1302,6 @@ static void isp4_qops_buffer_finish(struct vb2_buffer *vb)
 {
 }
 
-static void isp4_qops_buffer_cleanup(struct vb2_buffer *vb)
-{
-	struct isp4_video_dev *ctx = vb2_get_drv_priv(vb->vb2_queue);
-	struct vb2_amdisp_buf *buf = vb->planes[0].mem_priv;
-	struct device *dev = &ctx->cam->pdev->dev;
-
-	dev_dbg(dev, "%s|index=%u vb->memory %u", ctx->vdev.name,
-		vb->index, vb->memory);
-
-	// release implicit dmabuf reference here for vb2 buffer
-	// of type MMAP and is exported
-	if (vb->memory == VB2_MEMORY_MMAP && buf->is_expbuf) {
-		dma_buf_put(buf->dbuf);
-		dev_dbg(dev, "put dmabuf for vb->memory %d expbuf %d",
-			vb->memory, buf->is_expbuf);
-	}
-}
-
 static int isp4_qops_start_streaming(struct vb2_queue *vq, unsigned int count)
 {
 	int ret;
@@ -1510,7 +1485,6 @@ static const struct vb2_ops isp4_qops = {
 	.buf_init = isp4_qops_buffer_init,
 	.buf_prepare = isp4_qops_buffer_prepare,
 	.buf_finish = isp4_qops_buffer_finish,
-	.buf_cleanup = isp4_qops_buffer_cleanup,
 	.buf_queue = isp4_qops_buffer_queue,
 	.start_streaming = isp4_qops_start_streaming,
 	.stop_streaming = isp4_qops_stop_streaming,

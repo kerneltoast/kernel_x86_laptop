@@ -126,7 +126,6 @@ struct vb2_amdisp_buf {
 	void				*bo;
 	u64				gpu_addr;
 	struct vb2_vmarea_handler	handler;
-	bool				is_expbuf;
 };
 
 #endif /* isp_core.h */
