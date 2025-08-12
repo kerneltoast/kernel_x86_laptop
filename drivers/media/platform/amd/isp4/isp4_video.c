@@ -176,7 +176,7 @@ static int isp4vid_vb2_mmap(void *buf_priv, struct vm_area_struct *vma)
 	vm_flags_set(vma, VM_DONTEXPAND);
 
 	dev_dbg(buf->dev, "mmap isp user bo 0x%llx size %ld refcount %d\n",
-		buf->gpu_addr, buf->size, buf->refcount.refs.counter);
+		buf->gpu_addr, buf->size, refcount_read(&buf->refcount));
 
 	return 0;
 }
@@ -457,7 +457,7 @@ static struct dma_buf *isp4vid_vb2_get_dmabuf(struct vb2_buffer *vb,
 	refcount_inc(&buf->refcount);
 
 	dev_dbg(buf->dev, "buf exported, refcount %d\n",
-		buf->refcount.refs.counter);
+		refcount_read(&buf->refcount));
 
 	return dbuf;
 }
@@ -554,7 +554,7 @@ static void isp4vid_vb2_put(void *buf_priv)
 	dev_dbg(buf->dev,
 		"release isp user bo 0x%llx size %ld refcount %d is_expbuf %d",
 		buf->gpu_addr, buf->size,
-		buf->refcount.refs.counter, buf->is_expbuf);
+		refcount_read(&buf->refcount), buf->is_expbuf);
 
 	if (refcount_dec_and_test(&buf->refcount)) {
 		isp_user_buffer_free(buf->bo);
@@ -617,7 +617,7 @@ static void *isp4vid_vb2_alloc(struct vb2_buffer *vb, struct device *dev,
 	refcount_set(&buf->refcount, 1);
 
 	dev_dbg(dev, "allocated isp user bo 0x%llx size %ld refcount %d",
-		buf->gpu_addr, buf->size, buf->refcount.refs.counter);
+		buf->gpu_addr, buf->size, refcount_read(&buf->refcount));
 
 	return buf;
 }
