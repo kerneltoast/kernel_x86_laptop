@@ -217,7 +217,7 @@ static int vb2_amdisp_mmap(void *buf_priv, struct vm_area_struct *vma)
 	vm_flags_set(vma, VM_DONTEXPAND);
 
 	dev_dbg(buf->dev, "mmap isp user bo 0x%llx size %ld refcount %d",
-		buf->gpu_addr, buf->size, buf->refcount.refs.counter);
+		buf->gpu_addr, buf->size, refcount_read(&buf->refcount));
 
 	return 0;
 }
@@ -494,7 +494,7 @@ static struct dma_buf *vb2_amdisp_get_dmabuf(struct vb2_buffer *vb,
 	buf->is_expbuf = true;
 	refcount_inc(&buf->refcount);
 
-	dev_dbg(buf->dev, "buf exported, refcount %d", buf->refcount.refs.counter);
+	dev_dbg(buf->dev, "buf exported, refcount %d", refcount_read(&buf->refcount));
 
 	return dbuf;
 }
@@ -593,7 +593,7 @@ static void vb2_amdisp_put(void *buf_priv)
 
 	dev_dbg(buf->dev, "release isp user bo 0x%llx size %ld refcount %d is_expbuf %d",
 		buf->gpu_addr, buf->size,
-		buf->refcount.refs.counter, buf->is_expbuf);
+		refcount_read(&buf->refcount), buf->is_expbuf);
 
 	if (refcount_dec_and_test(&buf->refcount)) {
 		amdgpu_bo_free_isp_user(bo);
@@ -663,7 +663,7 @@ static void *vb2_amdisp_alloc(struct vb2_buffer *vb, struct device *dev,
 	refcount_set(&buf->refcount, 1);
 
 	dev_dbg(dev, "allocated isp user bo 0x%llx size %ld refcount %d",
-		buf->gpu_addr, buf->size, buf->refcount.refs.counter);
+		buf->gpu_addr, buf->size, refcount_read(&buf->refcount));
 
 	return buf;
 }
