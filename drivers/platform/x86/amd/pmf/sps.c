@@ -419,7 +419,7 @@ static const struct platform_profile_ops amd_pmf_profile_ops = {
 
 int amd_pmf_init_sps(struct amd_pmf_dev *dev)
 {
-	dev->current_profile = PLATFORM_PROFILE_BALANCED;
+	dev->current_profile = PLATFORM_PROFILE_PERFORMANCE;
 
 	if (is_apmf_func_supported(dev, APMF_FUNC_STATIC_SLIDER_GRANULAR)) {
 		if (dev->pmf_if_version == PMF_IF_V2) {
