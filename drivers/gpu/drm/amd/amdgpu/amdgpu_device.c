@@ -4767,6 +4767,16 @@ fence_driver_init:
 	if (r)
 		goto failed;
 
+	/*
+	 * Set the performance level to 'low' by default to reduce GPU power
+	 * consumption by up to _several watts_. Tested on Strix Halo 395+.
+	 */
+	r = amdgpu_pm_set_perf_level(adev, AMD_DPM_FORCED_LEVEL_LOW);
+	if (r)
+		dev_err(adev->dev, "Failed to set performance level to 'low' (%d)\n", r);
+	else
+		dev_info(adev->dev, "Successfully set performance level to 'low'\n");
+
 	return 0;
 
 release_ras_con:

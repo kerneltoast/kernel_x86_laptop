@@ -125,4 +125,7 @@ void amdgpu_pm_virt_sysfs_fini(struct amdgpu_device *adev);
 
 void amdgpu_debugfs_pm_init(struct amdgpu_device *adev);
 
+int amdgpu_pm_set_perf_level(struct amdgpu_device *adev,
+			     enum amd_dpm_forced_level level);
+
 #endif

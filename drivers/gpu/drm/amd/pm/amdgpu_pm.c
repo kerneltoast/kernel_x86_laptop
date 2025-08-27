@@ -352,6 +352,29 @@ static ssize_t amdgpu_get_power_dpm_force_performance_level(struct device *dev,
 			  "unknown");
 }
 
+int amdgpu_pm_set_perf_level(struct amdgpu_device *adev,
+			     enum amd_dpm_forced_level level)
+{
+	int ret;
+
+	ret = amdgpu_pm_get_access(adev);
+	if (ret < 0)
+		return ret;
+
+	mutex_lock(&adev->pm.stable_pstate_ctx_lock);
+	if (amdgpu_dpm_force_performance_level(adev, level)) {
+		amdgpu_pm_put_access(adev);
+		mutex_unlock(&adev->pm.stable_pstate_ctx_lock);
+		return -EINVAL;
+	}
+	/* override whatever a user ctx may have set */
+	adev->pm.stable_pstate_ctx = NULL;
+	mutex_unlock(&adev->pm.stable_pstate_ctx_lock);
+
+	amdgpu_pm_put_access(adev);
+	return 0;
+}
+
 static ssize_t amdgpu_set_power_dpm_force_performance_level(struct device *dev,
 							    struct device_attribute *attr,
 							    const char *buf,
@@ -386,21 +409,9 @@ static ssize_t amdgpu_set_power_dpm_force_performance_level(struct device *dev,
 		return -EINVAL;
 	}
 
-	ret = amdgpu_pm_get_access(adev);
-	if (ret < 0)
+	ret = amdgpu_pm_set_perf_level(adev, level);
+	if (ret)
 		return ret;
-
-	mutex_lock(&adev->pm.stable_pstate_ctx_lock);
-	if (amdgpu_dpm_force_performance_level(adev, level)) {
-		amdgpu_pm_put_access(adev);
-		mutex_unlock(&adev->pm.stable_pstate_ctx_lock);
-		return -EINVAL;
-	}
-	/* override whatever a user ctx may have set */
-	adev->pm.stable_pstate_ctx = NULL;
-	mutex_unlock(&adev->pm.stable_pstate_ctx_lock);
-
-	amdgpu_pm_put_access(adev);
 
 	return count;
 }
